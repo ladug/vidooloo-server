@@ -27,7 +27,7 @@ class BytesStream {
 
     updatePosBy = length => (this.pos += length);
     subStream = (start, length) => (new Bytestream(this.bytes.buffer, start, length));
-    seek = index => (assert(0 < index && index <= this.end, "Illegal seek location!(" + index + ")") && (this.pos = index));
+    seek = index => (assert(0 < index && index <= this.end, "Illegal seek location!(" + index + ")") && (this.pos = index)) || 1;
     skip = length => this.seek(this.pos + length);
     reserved = (length, value) => {
         for (let i = 0; i < length; i++) {
@@ -61,38 +61,7 @@ class BytesStream {
             }
             array.push(row)
         }
-
         return cols === 1 ? array[0] : array;
-
-        /* ORIGINAL */
-        /*cols = cols || 1;
-         if (this.pos > this.end - (rows * cols) * 4)
-         return null;
-         if (cols == 1) {
-         var array = new Uint32Array(rows);
-         for (var i = 0; i < rows; i++) {
-         array[i] = this.readU32();
-         }
-         return array;
-         } else {
-         var array = new Array(rows);
-         for (var i = 0; i < rows; i++) {
-         var row = null;
-         if (names) {
-         row = {};
-         for (var j = 0; j < cols; j++) {
-         row[names[j]] = this.readU32();
-         }
-         } else {
-         row = new Uint32Array(cols);
-         for (var j = 0; j < cols; j++) {
-         row[j] = this.readU32();
-         }
-         }
-         array[i] = row;
-         }
-         return array;
-         }*/
     }
 
     readU8() {

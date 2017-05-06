@@ -57,244 +57,342 @@ class MP4Reader {
         }
     }
 
-    readBox(stream) {
-        const boxType = stream.read4CC(),
-            box = {
-                name: boxTypeName[boxType] || boxType,
-                offset: stream.position,
-                size: stream.readU32(),
-                type: boxType,
-                version: null,
-                flags: null
-            };
+    getBoxVersion = (stream) => {
+        const version = stream.readU8();
+        assert(version === 0, "Unknown version!");
+        return version;
+    };
+    //TODO: optimize code further!
+    /*getVersionFlags = (stream) => ({
+     version: this.getBoxVersion(stream),
+     flags: stream.readU24(),
+     });*/
+    ftypBox = (stream, box) => {
+        Object.assign(box, {
+            majorBrand: stream.read4CC(),
+            minorVersion: stream.readU32(),
+            compatibleBrands: (new Array((box.size - 16) / 4)).fill().map(() => stream.read4CC())
+        })
+    };
+    mdhdBox = (stream, box) => {
+        Object.assign(box, {
+            version: this.getBoxVersion(stream),
+            flags: stream.readU24(),
+            creationTime: stream.readU32(),
+            modificationTime: stream.readU32(),
+            timeScale: stream.readU32(),
+            duration: stream.readU32(),
+            language: stream.readISO639(),
+        });
+        stream.skip(2);
+    };
+    mvhdBox = (stream, box) => {
+        Object.assign(box, {
+            version: this.getBoxVersion(stream),
+            flags: stream.readU24(),
+            creationTime: stream.readU32(),
+            modificationTime: stream.readU32(),
+            timeScale: stream.readU32(),
+            duration: stream.readU32(),
+            rate: stream.readFP16(),
+            volume: stream.readFP8(),
+            matrix: stream.skip(10) && stream.readU32Array(9),
+            nextTrackId: stream.skip(6 * 4) && stream.readU32()
+        });
+    };
 
+    tkhdBox = (stream, box) => {
+        Object.assign(box, {
+            version: this.getBoxVersion(stream),
+            flags: stream.readU24(),
+            creationTime: stream.readU32(),
+            modificationTime: stream.readU32(),
+            trackId: stream.readU32(),
+            duration: stream.skip(4) && stream.readU32(),
+            layer: stream.skip(8) && stream.readU16(),
+            alternateGroup: stream.readU16(),
+            volume: stream.readFP8(),
+            matrix: stream.skip(2) && stream.readU32Array(9),
+            width: stream.readFP16(),
+            height: stream.readFP16()
+        });
+    };
+
+    esdsBox = (stream, box) => {
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+        });
+        // TODO: Do we really need to parse this? for now lets skip all of it
+        stream.skip(box.size - (stream.position - box.offset));
+    };
+
+    btrtBox = (stream, box) => {
+        Object.assign(box, {
+            bufferSizeDb: stream.readU32(),
+            maxBitrate: stream.readU32(),
+            avgBitrate: stream.readU32()
+        })
+    };
+    sttsBox = (stream, box) => {
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+            table: stream.readU32Array(stream.readU32(), 2, ["count", "delta"])
+        })
+    };
+    stssBox = (stream, box) => {
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+            samples: stream.readU32Array(stream.readU32())
+        })
+    };
+    stscBox = (stream, box) => {
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+            table: stream.readU32Array(stream.readU32(), 3, ["firstChunk", "samplesPerChunk", "sampleDescriptionId"])
+        })
+    };
+    stszBox = (stream, box) => {
+        const
+            version = stream.readU8(),
+            flags = stream.readU24(),
+            sampleSize = stream.readU32(),
+            count = stream.readU32();
+        Object.assign(box, {
+            version: version,
+            flags: flags,
+            sampleSize: sampleSize,
+            table: sampleSize === 0 ? stream.readU32Array(count) : []
+        }); //TODO: something is missing, no default table! no idia what count is eather
+    };
+
+    stcoBox = (stream, box) => {
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+            table: stream.readU32Array(stream.readU32())
+        })
+    };
+
+    smhdBox = (stream, box) => {
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+            balance: stream.readFP8()
+        });
+        stream.reserved(2, 0);
+    };
+
+    mdatBox = (stream, box) => {
+        assert(box.size >= 8, "Cannot parse large media data yet.")
+        Object.assign(box, {
+            data: stream.readU8Array(box.size - (stream.position - box.offset))
+        });
+    };
+
+    hdlrBox = (stream, box) => {
+        const bytesLeft = box.size - 32;
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+            handlerType: stream.skip(4) && stream.read4CC(),
+            name: stream.skip(4 * 3) && ( bytesLeft > 0 ? stream.readUTF8(bytesLeft) : box.name)
+        })
+    };
+
+    avcCBox = (stream, box) => {
+        Object.assign(box, {
+            configurationVersion: stream.readU8(),
+            avcProfileIndication: stream.readU8(),
+            profileCompatibility: stream.readU8(),
+            avcLevelIndication: stream.readU8(),
+            lengthSizeMinusOne: stream.readU8() & 3,
+            sps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16())),
+            pps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))
+        });
+        assert(box.lengthSizeMinusOne == 3, "TODO");
+        stream.skip(box.size - (stream.position - box.offset));
+    };
+
+    avc1Box = (stream, box) => {
+        Object.assign(box, {
+            dataReferenceIndex: stream.reserved(6, 0) && stream.readU16(),
+            version: stream.readU16(),
+            revisionLevel: stream.readU16(),
+            vendor: stream.readU32(),
+            temporalQuality: stream.readU32(),
+            spatialQuality: stream.readU32(),
+            width: stream.readU16(),
+            height: stream.readU16(),
+            horizontalResolution: stream.readFP16(),
+            verticalResolution: stream.readFP16(),
+            reserved: stream.readU32(),
+            frameCount: stream.readU16(),
+            compressorName: stream.readPString(32),
+            depth: stream.readU16(),
+            colorTableId: stream.readU16(),
+        });
+        // verifications
+        assert(box.version === 0, "Bad Version");
+        assert(box.revisionLevel === 0, "Bad Revision Level");
+        assert(box.reserved === 0, "Bad Reserved");
+        assert(box.colorTableId == 0xFFFF); // Color Table Id
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length); //TODO: check if we need to skip last parts of the stream, probably need but still
+        this.readBoxes(subStream, box);
+    };
+
+    moovBox = (stream, box) => {
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length);
+        this.readBoxes(subStream, box);
+    };
+
+    mdiaBox = (stream, box) => {
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length);
+        this.readBoxes(subStream, box);
+    };
+
+    minfBox = (stream, box) => {
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length);
+        this.readBoxes(subStream, box);
+    };
+
+    stblBox = (stream, box) => {
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length);
+        this.readBoxes(subStream, box);
+    };
+
+    mp4aBox = (stream, box) => {
+        Object.assign(box, {
+            dataReferenceIndex: stream.reserved(6, 0) && stream.readU16(),
+            version: stream.readU16(),
+            channelCount: stream.skip(6) && stream.readU16(),
+            sampleSize: stream.readU16(),
+            compressionId: stream.readU16(),
+            packetSize: stream.readU16(),
+            sampleRate: stream.readU32() >>> 16,
+        });
+        // TODO: Parse other version levels.
+        assert(box.version == 0);
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length);
+        this.readBoxes(subStream, box);
+    };
+
+    trakBox = (stream, box) => {
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length);
+        this.readBoxes(subStream, box);
+        //TODO what if tkhd is in another location? what then? Fix bug, also why this and not stream?
+        this.tracks[box.tkhd.trackId] = new Track(this, box);
+    };
+
+    stsdBox = (stream, box) => {
+        Object.assign(box, {
+            version: stream.readU8(),
+            flags: stream.readU24(),
+            sd: [], //TODO - check and fill sd or remove it
+            entries: stream.readU32(), //TODO find out what entries mean
+        });
+        const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
+        stream.skip(subStream.length);
+        this.readBoxes(subStream, box);
+    };
+
+    readBox(stream) {
+        const boxType = stream.read4CC();
+        let box = { //get basic box info
+            name: boxTypeName[boxType] || boxType,
+            offset: stream.position,
+            size: stream.readU32(),
+            type: boxType,
+        };
+        //TODO: fix this god damn switch, its too damn high!
         switch (box.type) {
             case 'ftyp':
-                    box.majorBrand = stream.read4CC();
-                    box.minorVersion = stream.readU32();
-                    box.compatibleBrands = new Array((box.size - 16) / 4);
-                    for (var i = 0; i < box.compatibleBrands.length; i++) {
-                        box.compatibleBrands[i] = stream.read4CC();
-                    }
-
-                break;
-            case 'moov':
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
-                break;
-            case 'mvhd':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    assert(box.version == 0);
-                    box.creationTime = stream.readU32();
-                    box.modificationTime = stream.readU32();
-                    box.timeScale = stream.readU32();
-                    box.duration = stream.readU32();
-                    box.rate = stream.readFP16();
-                    box.volume = stream.readFP8();
-                    stream.skip(10);
-                    box.matrix = stream.readU32Array(9);
-                    stream.skip(6 * 4);
-                    box.nextTrackId = stream.readU32();
-
-                break;
-            case 'trak':
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
-                    this.tracks[box.tkhd.trackId] = new Track(this, box);
-
-                break;
-            case 'tkhd':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    assert(box.version == 0);
-                    box.creationTime = stream.readU32();
-                    box.modificationTime = stream.readU32();
-                    box.trackId = stream.readU32();
-                    stream.skip(4);
-                    box.duration = stream.readU32();
-                    stream.skip(8);
-                    box.layer = stream.readU16();
-                    box.alternateGroup = stream.readU16();
-                    box.volume = stream.readFP8();
-                    stream.skip(2);
-                    box.matrix = stream.readU32Array(9);
-                    box.width = stream.readFP16();
-                    box.height = stream.readFP16();
-
-                break;
-            case 'mdia':
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
-
+                this.ftypBox(stream, box);
                 break;
             case 'mdhd':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    assert(box.version == 0);
-                    box.creationTime = stream.readU32();
-                    box.modificationTime = stream.readU32();
-                    box.timeScale = stream.readU32();
-                    box.duration = stream.readU32();
-                    box.language = stream.readISO639();
-                    stream.skip(2);
-
+                this.mdhdBox(stream, box);
                 break;
-            case 'hdlr':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    stream.skip(4);
-                    box.handlerType = stream.read4CC();
-                    stream.skip(4 * 3);
-                    var bytesLeft = box.size - 32;
-                    if (bytesLeft > 0) {
-                        box.name = stream.readUTF8(bytesLeft);
-                    }
-
+            case 'mvhd':
+                this.mvhdBox(stream, box);
                 break;
-            case 'minf':
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
-
-                break;
-            case 'stbl':
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
-
-                break;
-            case 'stsd':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    box.sd = [];
-                    var entries = stream.readU32();
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
-                break;
-            case 'avc1':
-                    stream.reserved(6, 0);
-                    box.dataReferenceIndex = stream.readU16();
-                    assert(stream.readU16() == 0); // Version
-                    assert(stream.readU16() == 0); // Revision Level
-                    stream.readU32(); // Vendor
-                    stream.readU32(); // Temporal Quality
-                    stream.readU32(); // Spatial Quality
-                    box.width = stream.readU16();
-                    box.height = stream.readU16();
-                    box.horizontalResolution = stream.readFP16();
-                    box.verticalResolution = stream.readFP16();
-                    assert(stream.readU32() == 0); // Reserved
-                    box.frameCount = stream.readU16();
-                    box.compressorName = stream.readPString(32);
-                    box.depth = stream.readU16();
-                    assert(stream.readU16() == 0xFFFF); // Color Table Id
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
-                break;
-            case 'mp4a':
-                    stream.reserved(6, 0);
-                    box.dataReferenceIndex = stream.readU16();
-                    box.version = stream.readU16();
-                    stream.skip(2);
-                    stream.skip(4);
-                    box.channelCount = stream.readU16();
-                    box.sampleSize = stream.readU16();
-                    box.compressionId = stream.readU16();
-                    box.packetSize = stream.readU16();
-                    box.sampleRate = stream.readU32() >>> 16;
-
-                    // TODO: Parse other version levels.
-                    assert(box.version == 0);
-                    var subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-                    this.readBoxes(subStream, box);
-                    stream.skip(subStream.length);
+            case 'tkhd':
+                this.tkhdBox(stream, box);
                 break;
             case 'esds':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    // TODO: Do we really need to parse this?
-                    stream.skip(box.size - (stream.position - box.offset));
-
-                break;
-            case 'avcC':
-                    box.configurationVersion = stream.readU8();
-                    box.avcProfileIndication = stream.readU8();
-                    box.profileCompatibility = stream.readU8();
-                    box.avcLevelIndication = stream.readU8();
-                    box.lengthSizeMinusOne = stream.readU8() & 3;
-                    assert(box.lengthSizeMinusOne == 3, "TODO");
-                    var count = stream.readU8() & 31;
-                    box.sps = [];
-                    for (var i = 0; i < count; i++) {
-                        box.sps.push(stream.readU8Array(stream.readU16()));
-                    }
-                    var count = stream.readU8() & 31;
-                    box.pps = [];
-                    for (var i = 0; i < count; i++) {
-                        box.pps.push(stream.readU8Array(stream.readU16()));
-                    }
-                    stream.skip(box.size - (stream.position - box.offset));
-
+                this.esdsBox(stream, box);
                 break;
             case 'btrt':
-                    box.bufferSizeDb = stream.readU32();
-                    box.maxBitrate = stream.readU32();
-                    box.avgBitrate = stream.readU32();
+                this.btrtBox(stream, box);
                 break;
             case 'stts':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    box.table = stream.readU32Array(stream.readU32(), 2, ["count", "delta"]);
+                this.sttsBox(stream, box);
                 break;
             case 'stss':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    box.samples = stream.readU32Array(stream.readU32());
+                this.stssBox(stream, box);
                 break;
             case 'stsc':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    box.table = stream.readU32Array(stream.readU32(), 3,
-                        ["firstChunk", "samplesPerChunk", "sampleDescriptionId"]);
+                this.stscBox(stream, box);
                 break;
             case 'stsz':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    box.sampleSize = stream.readU32();
-                    var count = stream.readU32();
-                    if (box.sampleSize == 0) {
-                        box.table = stream.readU32Array(count);
-                    }
+                this.stszBox(stream, box);
                 break;
             case 'stco':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    box.table = stream.readU32Array(stream.readU32());
+                this.stcoBox(stream, box);
                 break;
             case 'smhd':
-                    box.version = stream.readU8();
-                    box.flags = stream.readU24();
-                    box.balance = stream.readFP8();
-                    stream.reserved(2, 0);
+                this.smhdBox(stream, box);
                 break;
             case 'mdat':
-                    assert(box.size >= 8, "Cannot parse large media data yet.");
-                    box.data = stream.readU8Array(box.size - (stream.position - box.offset));
+                this.mdatBox(stream, box);
+                break;
+            case 'hdlr':
+                this.hdlrBox(stream, box);
+                break;
+            case 'avcC':
+                this.avcCBox(stream, box);
+                break;
+            case 'avc1':
+                this.avc1Box(stream, box);
+                break;
+            case 'moov':
+                this.moovBox(stream, box);
+                break;
+            case 'mdia':
+                this.mdiaBox(stream, box);
+                break;
+            case 'minf':
+                this.minfBox(stream, box);
+                break;
+            case 'stbl':
+                this.stblBox(stream, box);
+                break;
+            case 'mp4a':
+                this.mp4aBox(stream, box);
+                break;
+            case 'trak':
+                this.trakBox(stream, box);
+                break;
+            case 'stsd':
+                this.stsdBox(stream.box);
                 break;
             default:
+                console.warn("Unknown box type!", box.type);
                 stream.skip(box.size - (stream.position - box.offset));
                 break;
         }
         return box;
     }
-
-
+    //TODO:GENERAL - make sound work, somehow
     traceSamples() { //this funtion is never in use, not sure what to make of this, debug i guess
         const video = this.tracks[1],
             audio = this.tracks[2];
@@ -319,8 +417,6 @@ class MP4Reader {
             }
         }
     }
-
-
 }
 
 module.exports = MP4Reader;
