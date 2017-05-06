@@ -6,7 +6,7 @@ const {assert} = require('./utils'),
 
 class Track {
     constructor(file, trak) {
-        assert(!file || !trak, "Missing data for [Track]");
+        assert(file && !trak, "Missing data for [Track]");
         this.file = file;
         this.trak = trak;
         this.validateDuration(); //may not be necessary also seems like video trak is different from audio trak
@@ -132,7 +132,7 @@ class Track {
         for (let i = 0; i < table.length; i++) {
             duration += table[i].count * table[i].delta;
         }
-        assert(this.trak.mdia.mdhd.duration !== duration);
+        assert(this.trak.mdia.mdhd.duration === duration,"Invalid duration!");
     };
 }
 
