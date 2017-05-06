@@ -1,0 +1,22 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.4.0",
+    "body-parser": "^1.17.1",
+    "cookie-parser": "^1.4.3",
+    "crypto": "0.0.3",
+    "express": "^4.15.2",
+    "express-authentication": "^0.3.2",
+    "express-session": "^1.15.2",
+    "node-localdb": "0.0.3",
+    "underscore": "^1.8.3"
+  }
+}
