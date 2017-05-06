@@ -3,7 +3,7 @@
  */
 const {assert, noBreakingError, BUFFER_READ_LENGTH_ERROR} = require('./utils');
 
-class Bytestream {
+class ByteStream {
     constructor(arrayBuffer, start, length) {
         assert(!arrayBuffer || !length, "Broken bytestream!");
         this.bytes = new Uint8Array(arrayBuffer);
@@ -187,4 +187,4 @@ class Bytestream {
     }
 }
 
-module.exports = Bytestream;
+module.exports = ByteStream;
