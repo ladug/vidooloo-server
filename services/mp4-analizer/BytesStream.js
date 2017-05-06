@@ -5,7 +5,7 @@ const {assert, noBreakingError, BUFFER_READ_LENGTH_ERROR} = require('./utils');
 
 class BytesStream {
     constructor(arrayBuffer, start, length) {
-        assert(!arrayBuffer || !length, "Broken bytestream!");
+        assert(arrayBuffer && length, "Broken bytestream!");
         this.bytes = new Uint8Array(arrayBuffer);
         this.start = start || 0;
         this.pos = this.start;
@@ -27,11 +27,11 @@ class BytesStream {
 
     updatePosBy = length => (this.pos += length);
     subStream = (start, length) => (new Bytestream(this.bytes.buffer, start, length));
-    seek = index => (assert(index < 0 || index > this.end, "Illegal seek location!(" + index + ")") && (this.pos = index));
+    seek = index => (assert(0 < index && index <= this.end, "Illegal seek location!(" + index + ")") && (this.pos = index));
     skip = length => this.seek(this.pos + length);
     reserved = (length, value) => {
         for (let i = 0; i < length; i++) {
-            assert(this.readU8() !== value); //fatal exeption on error TODO: update to true/false instead
+            assert(this.readU8() === value, "Reserved does not equal value!"); //fatal exception  TODO: update to true/false instead
         }
         return true;
     };
@@ -46,7 +46,7 @@ class BytesStream {
     }
 
     readU32Array(rows, cols, names) { //TODO:BUG - fix not updating position here!!
-        assert(!rows || !cols, "Missing data on readU32Array");
+        assert(rows && cols, "Missing data on readU32Array");
         const {pos, end, updatePosBy}=this,
             readLength = (rows * cols) * 4;
         if (noBreakingError(pos > end - readLength, BUFFER_READ_LENGTH_ERROR)) {
@@ -180,7 +180,7 @@ class BytesStream {
 
     readPString(max) {
         const len = this.readU8();
-        assert(len > max, "Failed to readPstring! Too long? im not sure what this is");
+        assert(len <= max, "Failed to readPstring! Too long? im not sure what this is");
         const res = this.readUTF8(len);
         this.reserved(max - len - 1, 0); // check remaining bits as 0? why?
         return res;
