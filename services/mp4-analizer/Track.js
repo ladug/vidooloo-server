@@ -2,7 +2,7 @@
  * Created by vladi on 06-May-17.
  */
 const {assert} = require('./utils'),
-    ByteStream = require('./BytesStream');
+    BytesStream = require('./BytesStream');
 
 class Track {
     constructor(file, trak) {
@@ -119,7 +119,7 @@ class Track {
         let offset = this.sampleToOffset(sample);
         //TODO: replace while with for loop
         while (end - offset > 0) {
-            const length = (new ByteStream(bytes.buffer, offset)).readU32();
+            const length = (new BytesStream(bytes.buffer, offset)).readU32();
             nalUnits.push(bytes.subarray(offset + 4, offset + length + 4));
             offset += length + 4;
         }
