@@ -8,9 +8,9 @@ const assert = (condition, message) => {
     return true;
 };
 
-const noBreakingError = (condition, message) => {
+const noBreakingError = (condition, message,line) => {
     if (condition) {
-        console.error(message);
+        console.error(line,message);
         return true;
     }
     return false;

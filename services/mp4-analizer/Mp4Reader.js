@@ -145,8 +145,8 @@ class MP4Reader {
     sttsBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
-            flags: stream.readU24(),
-            table: stream.readU32Array(stream.readU32(), 2, ["count", "delta"])
+            flags: stream.readU24(), //TODO: check why half the table is empty!
+            table: (stream.readU32Array(stream.readU32(), 2, ["count", "delta"])).filter((val)=>!!val)
         })
     };
 
@@ -161,8 +161,8 @@ class MP4Reader {
     stscBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
-            flags: stream.readU24(),
-            table: stream.readU32Array(stream.readU32(), 3, ["firstChunk", "samplesPerChunk", "sampleDescriptionId"])
+            flags: stream.readU24(), //TODO: check why half the table is empty!
+            table: stream.readU32Array(stream.readU32(), 3, ["firstChunk", "samplesPerChunk", "sampleDescriptionId"]).filter((val)=>!!val)
         })
     };
 
@@ -252,32 +252,33 @@ class MP4Reader {
         assert(box.reserved === 0, "Bad Reserved");
         assert(box.colorTableId == 0xFFFF); // Color Table Id
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length); //TODO: check if we need to skip last parts of the stream, probably need but still
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length); //TODO: check if we need to skip last parts of the stream, probably need but still
+
     };
 
     moovBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length);
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length);
     };
 
     mdiaBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length);
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length);
     };
 
     minfBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length);
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length);
     };
 
     stblBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length);
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length);
     };
 
     mp4aBox(stream, box) {
@@ -293,14 +294,14 @@ class MP4Reader {
         // TODO: Parse other version levels.
         assert(box.version == 0);
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length);
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length);
     };
 
     trakBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length);
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length);
         //TODO what if tkhd is in another location? what then? Fix bug, also why this and not stream?
         this.tracks[box.tkhd.trackId] = new Track(this, box);
     };
@@ -313,8 +314,8 @@ class MP4Reader {
             entries: stream.readU32(), //TODO find out what entries mean
         });
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
-        stream.skip(subStream.length);
         this.readBoxes(subStream, box);
+        stream.skip(subStream.length);
     };
 
     readBox(stream) {
@@ -327,6 +328,7 @@ class MP4Reader {
         //box name is not nessesary for anything really
         box.name = boxTypeName[box.type] || box.type;
 
+        console.log("Reading ["+box.type+"]",JSON.stringify(box))
         //TODO: fix this god damn switch, its too damn high!
         switch (box.type) {
             case 'ftyp':

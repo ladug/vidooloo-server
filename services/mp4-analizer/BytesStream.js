@@ -6,7 +6,7 @@ const {assert, noBreakingError, BUFFER_READ_LENGTH_ERROR} = require('./utils');
 class BytesStream {
     constructor(arrayBuffer, start, length) {
         assert(arrayBuffer, "Broken BytesStream!");
-        this.bytes = arrayBuffer;//new Uint8Array(arrayBuffer);
+        this.bytes = new Uint8Array(arrayBuffer);
         this.start = start || 0;
         this.pos = this.start;
         this.end = (start + length) || this.bytes.length;
@@ -53,18 +53,19 @@ class BytesStream {
 
     readU8Array(length) {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos > end - length, BUFFER_READ_LENGTH_ERROR)) {
+        if (noBreakingError(pos > end - length, BUFFER_READ_LENGTH_ERROR, 56)) {
             return null;
         }
         updatePosBy(length);
         return bytes.subarray(pos, pos + length);
     }
 
-    readU32Array(rows, cols, names) { //TODO:BUG - fix not updating position here!!
-        assert(rows && cols, "Missing data on readU32Array");
-        const {pos, end, updatePosBy}=this,
+    readU32Array(rows, columns, names) { //TODO:BUG - fix not updating position here!!
+        assert(rows, "Missing data on readU32Array");
+        const cols = columns || 1,
+            {pos, end, updatePosBy}=this,
             readLength = (rows * cols) * 4;
-        if (noBreakingError(pos > end - readLength, BUFFER_READ_LENGTH_ERROR)) {
+        if (noBreakingError(pos > end - readLength, BUFFER_READ_LENGTH_ERROR, 68)) {
             return null;
         }
         const array = new Array(rows);
@@ -81,7 +82,7 @@ class BytesStream {
 
     readU8() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end, BUFFER_READ_LENGTH_ERROR)) {
+        if (noBreakingError(pos >= end, BUFFER_READ_LENGTH_ERROR, 85)) {
             return null;
         }
         updatePosBy(1);
@@ -90,7 +91,7 @@ class BytesStream {
 
     readU16() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end - 1, BUFFER_READ_LENGTH_ERROR)) {
+        if (noBreakingError(pos >= end - 1, BUFFER_READ_LENGTH_ERROR, 94)) {
             return null;
         }
         updatePosBy(2);
@@ -99,7 +100,7 @@ class BytesStream {
 
     readU24() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end - 3, BUFFER_READ_LENGTH_ERROR)) {
+        if (noBreakingError(pos >= end - 3, BUFFER_READ_LENGTH_ERROR, 103)) {
             return null;
         }
         updatePosBy(3);
@@ -108,7 +109,7 @@ class BytesStream {
 
     readU32() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end - 4, BUFFER_READ_LENGTH_ERROR)) {
+        if (noBreakingError(pos > end - 4, BUFFER_READ_LENGTH_ERROR, 112)) {
             return null;
         }
         updatePosBy(4);
@@ -117,7 +118,7 @@ class BytesStream {
 
     peek32() { //same as read but don't advance the read position
         const {pos, end, bytes}=this;
-        if (noBreakingError(pos >= end - 4, BUFFER_READ_LENGTH_ERROR)) {
+        if (pos >= end - 4) {
             return null;
         }
         return bytes[pos + 0] << 24 | bytes[pos + 1] << 16 | bytes[pos + 2] << 8 | bytes[pos + 3];
@@ -149,7 +150,7 @@ class BytesStream {
 
     read4CC() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end - 4, BUFFER_READ_LENGTH_ERROR)) {
+        if (noBreakingError(pos >= end - 4, BUFFER_READ_LENGTH_ERROR, 153)) {
             return null;
         }
         let res = "";
@@ -165,7 +166,7 @@ class BytesStream {
     readUTF8(length) {
         let string = "";
         for (let i = 0; i < length; i++) {
-            res += String.fromCharCode(this.readU8()); // shouldnt utf8 be 16?
+            string += String.fromCharCode(this.readU8()); // shouldnt utf8 be 16?
         }
         return string;
     }

@@ -6,7 +6,7 @@ const {assert} = require('./utils'),
 
 class Track {
     constructor(file, trak) {
-        assert(file && !trak, "Missing data for [Track]");
+        assert(file && trak, "Missing data for [Track]");
         this.file = file;
         this.trak = trak;
         this.validateDuration(); //may not be necessary also seems like video trak is different from audio trak
