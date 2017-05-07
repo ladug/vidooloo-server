@@ -145,8 +145,8 @@ class MP4Reader {
     sttsBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
-            flags: stream.readU24(), //TODO: check why half the table is empty!
-            table: (stream.readU32Array(stream.readU32(), 2, ["count", "delta"])).filter((val)=>!!val)
+            flags: stream.readU24(),
+            table: (stream.readU32Array(stream.readU32(), ["count", "delta"]))
         })
     };
 
@@ -161,8 +161,8 @@ class MP4Reader {
     stscBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
-            flags: stream.readU24(), //TODO: check why half the table is empty!
-            table: stream.readU32Array(stream.readU32(), 3, ["firstChunk", "samplesPerChunk", "sampleDescriptionId"]).filter((val)=>!!val)
+            flags: stream.readU24(),
+            table: stream.readU32Array(stream.readU32(), ["firstChunk", "samplesPerChunk", "sampleDescriptionId"])
         })
     };
 
@@ -172,6 +172,7 @@ class MP4Reader {
             flags = stream.readU24(),
             sampleSize = stream.readU32(),
             count = stream.readU32();
+
         Object.assign(box, {
             version: version,
             flags: flags,
@@ -328,7 +329,7 @@ class MP4Reader {
         //box name is not nessesary for anything really
         box.name = boxTypeName[box.type] || box.type;
 
-        console.log("Reading ["+box.type+"]",JSON.stringify(box))
+        console.log("Reading [" + box.type + "]", JSON.stringify(box))
         //TODO: fix this god damn switch, its too damn high!
         switch (box.type) {
             case 'ftyp':

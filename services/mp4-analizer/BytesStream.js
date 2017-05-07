@@ -60,24 +60,22 @@ class BytesStream {
         return bytes.subarray(pos, pos + length);
     }
 
-    readU32Array(rows, columns, names) { //TODO:BUG - fix not updating position here!!
+    readU32Array(rows, names) { //TODO:BUG - fix not updating position here!!
         assert(rows, "Missing data on readU32Array");
-        const cols = columns || 1,
+        const cols = (names && names.length) || 1,
             {pos, end, updatePosBy}=this,
             readLength = (rows * cols) * 4;
         if (noBreakingError(pos > end - readLength, BUFFER_READ_LENGTH_ERROR, 68)) {
             return null;
         }
-        const array = new Array(rows);
-
-        for (let i = 0; i < rows; i++) {
-            let row = names ? {} : new Uint32Array(cols);
-            for (let j = 0; j < cols; j++) {
-                row[names ? names[j] : j] = this.readU32();
-            }
-            array.push(row)
-        }
-        return cols === 1 ? array[0] : array;
+        return (new Array(rows)).fill().map(
+            cols === 1
+                ? () => (this.readU32())
+                : () => (names.reduce((res, name) => {
+                    res[name] = this.readU32();
+                    return res;
+                },{}))
+        );
     }
 
     readU8() {

@@ -16,6 +16,6 @@ module.exports=()=>{
     const data = fs.readFileSync('./demo-movies/tree.mp4'),
         mp4=new Mp4Reader(data);
     mp4.read();
-
+    mp4.traceSamples();
     return {success:true , headers : convertHeadersForComparison(mp4)};
 };
