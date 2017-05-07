@@ -279,12 +279,6 @@ class MP4Reader {
         stream.skip(subStream.length);
         this.readBoxes(subStream, box);
     };
-    freeBox(stream, box) {
-        Object.assign(box,{
-            size:8+17
-        });
-        stream.skip(box.size - (stream.position - box.offset));
-    };
 
     mp4aBox(stream, box) {
         Object.assign(box, {
@@ -324,15 +318,14 @@ class MP4Reader {
     };
 
     readBox(stream) {
-        const size = stream.readU32(),
-            boxType = stream.read4CC();
-
-        let box = { //get basic box info
-            name: boxTypeName[boxType] || boxType,
+        //TODO: remove the annoying position advance on read
+        let box = {
             offset: stream.position,
-            size: size,
-            type: boxType,
+            size: stream.readU32(),
+            type: stream.read4CC()
         };
+        //box name is not nessesary for anything really
+        box.name = boxTypeName[box.type] || box.type;
 
         //TODO: fix this god damn switch, its too damn high!
         switch (box.type) {
@@ -406,8 +399,6 @@ class MP4Reader {
                 this.stsdBox(stream, box);
                 break;
             case 'free' :
-                this.freeBox(stream, box);
-                break;
             default:
                 console.warn("Unknown box type!", box.type);
                 stream.skip(box.size - (stream.position - box.offset));

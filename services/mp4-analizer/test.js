@@ -7,5 +7,5 @@ module.exports=()=>{
     const data = fs.readFileSync('./demo-movies/tree.mp4'),
         mp4=new Mp4Reader(data);
     mp4.read();
-    return mp4;
+    return {success:true};
 };

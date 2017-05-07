@@ -5,7 +5,7 @@ const {assert, noBreakingError, BUFFER_READ_LENGTH_ERROR} = require('./utils');
 
 class BytesStream {
     constructor(arrayBuffer, start, length) {
-        assert(arrayBuffer, "Broken bytestream!");
+        assert(arrayBuffer, "Broken BytesStream!");
         this.bytes = arrayBuffer;//new Uint8Array(arrayBuffer);
         this.start = start || 0;
         this.pos = this.start;
@@ -32,7 +32,7 @@ class BytesStream {
     }
 
     subStream(start, length) {
-        return (new Bytestream(this.bytes.buffer, start, length))
+        return (new BytesStream(this.bytes.buffer, start, length))
     };
 
     seek(index) {
@@ -116,7 +116,7 @@ class BytesStream {
     }
 
     peek32() { //same as read but don't advance the read position
-        const {pos, end, bytes, updatePosBy}=this;
+        const {pos, end, bytes}=this;
         if (noBreakingError(pos >= end - 4, BUFFER_READ_LENGTH_ERROR)) {
             return null;
         }
