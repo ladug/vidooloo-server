@@ -1,14 +1,15 @@
 /**
  * Created by vladi on 05-May-17.
  */
+const runTests=require("./services/mp4-analizer/test");
 module.exports = [
-    /*{
+    {
         method: "get",
-        url: '/api/getUserData',
+        url: '/test',
         handlers: [
             (req, res) => {
-                res.send(200, req.user);
+                res.send(200, runTests());
             }
         ]
-    }*/
+    }
 ];

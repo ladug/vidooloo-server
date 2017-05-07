@@ -45,10 +45,21 @@ class Track {
         return this.trak.mdia.minf.stbl.stco.table;
     }
 
-    timeToSeconds = (time) => (time / this.timeScale);
-    secondsToTime = (seconds) => (seconds * this.timeScale);
-    getTotalTimeInSeconds = () => (this.timeToSeconds(this.duration / this.timeScale));
-    chunkToOffset = (chunk) => (this.stcoTable[chunk]);
+    timeToSeconds(time) {
+        return time / this.timeScale
+    };
+
+    secondsToTime(seconds) {
+        return (seconds * this.timeScale)
+    } ;
+
+    getTotalTimeInSeconds() {
+        return (this.timeToSeconds(this.duration / this.timeScale))
+    }
+
+    chunkToOffset(chunk) {
+        return (this.stcoTable[chunk]);
+    }
 
     sampleToSize(start, length) {
         let size = 0;
@@ -114,9 +125,9 @@ class Track {
 
     getSampleNALUnits(sample) {
         const nalUnits = [],
-            bytes = this.file.stream.bytes,
-            end = offset + this.sampleToSize(sample, 1);
+            bytes = this.file.stream.bytes;
         let offset = this.sampleToOffset(sample);
+        const end = offset + this.sampleToSize(sample, 1);
         //TODO: replace while with for loop
         while (end - offset > 0) {
             const length = (new BytesStream(bytes.buffer, offset)).readU32();
@@ -126,13 +137,13 @@ class Track {
         return nalUnits;
     }
 
-    validateDuration = () => {
+    validateDuration() {
         const table = this.sttsTable;
         let duration = 0;
         for (let i = 0; i < table.length; i++) {
             duration += table[i].count * table[i].delta;
         }
-        assert(this.trak.mdia.mdhd.duration === duration,"Invalid duration!");
+        assert(this.trak.mdia.mdhd.duration === duration, "Invalid duration!");
     };
 }
 

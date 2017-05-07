@@ -29,17 +29,21 @@ const boxTypeName = {
     "stsz": "Sample Size Box",
     "stco": "Chunk Offset Box",
     "smhd": "Sound Media Header Box",
-    "mdat": "Media Data Box"
-}
+    "mdat": "Media Data Box",
+    "free": "free",
+};
+
 class MP4Reader {
     constructor(stream) {
         assert(stream, "No stream provided!");
-        this.stream = stream;
+        this.stream = new BytesStream(stream);
         this.tracks = {};
         this.file = {};
     }
 
-    read = () => (this.readBoxes(this.stream, this.file));
+    read() {
+        return this.readBoxes(this.stream, this.file);
+    }
 
     readBoxes(stream, parent) {
         //TODO fix while problem, Adjust to work with arrays instead of this switch routine
@@ -57,24 +61,26 @@ class MP4Reader {
         }
     }
 
-    getBoxVersion = (stream) => {
+    getBoxVersion(stream) {
         const version = stream.readU8();
         assert(version === 0, "Unknown version!");
         return version;
     };
+
     //TODO: optimize code further!
     /*getVersionFlags = (stream) => ({
      version: this.getBoxVersion(stream),
      flags: stream.readU24(),
      });*/
-    ftypBox = (stream, box) => {
+    ftypBox(stream, box) {
         Object.assign(box, {
             majorBrand: stream.read4CC(),
             minorVersion: stream.readU32(),
             compatibleBrands: (new Array((box.size - 16) / 4)).fill().map(() => stream.read4CC())
         })
     };
-    mdhdBox = (stream, box) => {
+
+    mdhdBox(stream, box) {
         Object.assign(box, {
             version: this.getBoxVersion(stream),
             flags: stream.readU24(),
@@ -86,7 +92,8 @@ class MP4Reader {
         });
         stream.skip(2);
     };
-    mvhdBox = (stream, box) => {
+
+    mvhdBox(stream, box) {
         Object.assign(box, {
             version: this.getBoxVersion(stream),
             flags: stream.readU24(),
@@ -101,7 +108,7 @@ class MP4Reader {
         });
     };
 
-    tkhdBox = (stream, box) => {
+    tkhdBox(stream, box) {
         Object.assign(box, {
             version: this.getBoxVersion(stream),
             flags: stream.readU24(),
@@ -118,7 +125,7 @@ class MP4Reader {
         });
     };
 
-    esdsBox = (stream, box) => {
+    esdsBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
@@ -127,35 +134,39 @@ class MP4Reader {
         stream.skip(box.size - (stream.position - box.offset));
     };
 
-    btrtBox = (stream, box) => {
+    btrtBox(stream, box) {
         Object.assign(box, {
             bufferSizeDb: stream.readU32(),
             maxBitrate: stream.readU32(),
             avgBitrate: stream.readU32()
         })
     };
-    sttsBox = (stream, box) => {
+
+    sttsBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
             table: stream.readU32Array(stream.readU32(), 2, ["count", "delta"])
         })
     };
-    stssBox = (stream, box) => {
+
+    stssBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
             samples: stream.readU32Array(stream.readU32())
         })
     };
-    stscBox = (stream, box) => {
+
+    stscBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
             table: stream.readU32Array(stream.readU32(), 3, ["firstChunk", "samplesPerChunk", "sampleDescriptionId"])
         })
     };
-    stszBox = (stream, box) => {
+
+    stszBox(stream, box) {
         const
             version = stream.readU8(),
             flags = stream.readU24(),
@@ -169,7 +180,7 @@ class MP4Reader {
         }); //TODO: something is missing, no default table! no idia what count is eather
     };
 
-    stcoBox = (stream, box) => {
+    stcoBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
@@ -177,7 +188,7 @@ class MP4Reader {
         })
     };
 
-    smhdBox = (stream, box) => {
+    smhdBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
@@ -186,14 +197,14 @@ class MP4Reader {
         stream.reserved(2, 0);
     };
 
-    mdatBox = (stream, box) => {
+    mdatBox(stream, box) {
         assert(box.size >= 8, "Cannot parse large media data yet.")
         Object.assign(box, {
             data: stream.readU8Array(box.size - (stream.position - box.offset))
         });
     };
 
-    hdlrBox = (stream, box) => {
+    hdlrBox(stream, box) {
         const bytesLeft = box.size - 32;
         Object.assign(box, {
             version: stream.readU8(),
@@ -203,7 +214,7 @@ class MP4Reader {
         })
     };
 
-    avcCBox = (stream, box) => {
+    avcCBox(stream, box) {
         Object.assign(box, {
             configurationVersion: stream.readU8(),
             avcProfileIndication: stream.readU8(),
@@ -217,7 +228,7 @@ class MP4Reader {
         stream.skip(box.size - (stream.position - box.offset));
     };
 
-    avc1Box = (stream, box) => {
+    avc1Box(stream, box) {
         Object.assign(box, {
             dataReferenceIndex: stream.reserved(6, 0) && stream.readU16(),
             version: stream.readU16(),
@@ -245,31 +256,37 @@ class MP4Reader {
         this.readBoxes(subStream, box);
     };
 
-    moovBox = (stream, box) => {
+    moovBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
         stream.skip(subStream.length);
         this.readBoxes(subStream, box);
     };
 
-    mdiaBox = (stream, box) => {
+    mdiaBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
         stream.skip(subStream.length);
         this.readBoxes(subStream, box);
     };
 
-    minfBox = (stream, box) => {
+    minfBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
         stream.skip(subStream.length);
         this.readBoxes(subStream, box);
     };
 
-    stblBox = (stream, box) => {
+    stblBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
         stream.skip(subStream.length);
         this.readBoxes(subStream, box);
     };
+    freeBox(stream, box) {
+        Object.assign(box,{
+            size:8+17
+        });
+        stream.skip(box.size - (stream.position - box.offset));
+    };
 
-    mp4aBox = (stream, box) => {
+    mp4aBox(stream, box) {
         Object.assign(box, {
             dataReferenceIndex: stream.reserved(6, 0) && stream.readU16(),
             version: stream.readU16(),
@@ -286,7 +303,7 @@ class MP4Reader {
         this.readBoxes(subStream, box);
     };
 
-    trakBox = (stream, box) => {
+    trakBox(stream, box) {
         const subStream = stream.subStream(stream.position, box.size - (stream.position - box.offset));
         stream.skip(subStream.length);
         this.readBoxes(subStream, box);
@@ -294,7 +311,7 @@ class MP4Reader {
         this.tracks[box.tkhd.trackId] = new Track(this, box);
     };
 
-    stsdBox = (stream, box) => {
+    stsdBox(stream, box) {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
@@ -307,13 +324,16 @@ class MP4Reader {
     };
 
     readBox(stream) {
-        const boxType = stream.read4CC();
+        const size = stream.readU32(),
+            boxType = stream.read4CC();
+
         let box = { //get basic box info
             name: boxTypeName[boxType] || boxType,
             offset: stream.position,
-            size: stream.readU32(),
+            size: size,
             type: boxType,
         };
+
         //TODO: fix this god damn switch, its too damn high!
         switch (box.type) {
             case 'ftyp':
@@ -383,7 +403,10 @@ class MP4Reader {
                 this.trakBox(stream, box);
                 break;
             case 'stsd':
-                this.stsdBox(stream.box);
+                this.stsdBox(stream, box);
+                break;
+            case 'free' :
+                this.freeBox(stream, box);
                 break;
             default:
                 console.warn("Unknown box type!", box.type);
@@ -392,6 +415,7 @@ class MP4Reader {
         }
         return box;
     }
+
     //TODO:GENERAL - make sound work, somehow
     traceSamples() { //this funtion is never in use, not sure what to make of this, debug i guess
         const video = this.tracks[1],

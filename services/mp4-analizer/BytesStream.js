@@ -5,8 +5,8 @@ const {assert, noBreakingError, BUFFER_READ_LENGTH_ERROR} = require('./utils');
 
 class BytesStream {
     constructor(arrayBuffer, start, length) {
-        assert(arrayBuffer && length, "Broken bytestream!");
-        this.bytes = new Uint8Array(arrayBuffer);
+        assert(arrayBuffer, "Broken bytestream!");
+        this.bytes = arrayBuffer;//new Uint8Array(arrayBuffer);
         this.start = start || 0;
         this.pos = this.start;
         this.end = (start + length) || this.bytes.length;
@@ -25,11 +25,26 @@ class BytesStream {
         return this.end - this.pos;
     }
 
-    updatePosBy = length => (this.pos += length);
-    subStream = (start, length) => (new Bytestream(this.bytes.buffer, start, length));
-    seek = index => (assert(0 < index && index <= this.end, "Illegal seek location!(" + index + ")") && (this.pos = index)) || 1;
-    skip = length => this.seek(this.pos + length);
-    reserved = (length, value) => {
+    get updatePosBy() {
+        return (length) => {
+            return (this.pos += length);
+        }
+    }
+
+    subStream(start, length) {
+        return (new Bytestream(this.bytes.buffer, start, length))
+    };
+
+    seek(index) {
+        assert(0 < index && index <= this.end, "Illegal seek location!(" + index + ")") && (this.pos = index)
+        return true;
+    };
+
+    skip(length) {
+        return this.seek(this.pos + length)
+    }
+
+    reserved(length, value) {
         for (let i = 0; i < length; i++) {
             assert(this.readU8() === value, "Reserved does not equal value!"); //fatal exception  TODO: update to true/false instead
         }
@@ -108,12 +123,29 @@ class BytesStream {
         return bytes[pos + 0] << 24 | bytes[pos + 1] << 16 | bytes[pos + 2] << 8 | bytes[pos + 3];
     }
 
-    read8 = () => (this.readU8() << 24 >> 24);
-    read16 = () => (this.readU16() << 16 >> 16);
-    read24 = () => (this.readU24() << 8 >> 8);
-    read32 = () => (this.readU32());
-    readFP8 = () => (this.read16() / 256);
-    readFP16 = () => (this.read32() / 65536);
+    read8() {
+        return (this.readU8() << 24 >> 24);
+    }
+
+    read16() {
+        return (this.readU16() << 16 >> 16);
+    }
+
+    read24() {
+        return (this.readU24() << 8 >> 8);
+    }
+
+    read32() {
+        return (this.readU32());
+    }
+
+    readFP8() {
+        return (this.read16() / 256);
+    }
+
+    readFP16() {
+        return (this.read32() / 65536);
+    }
 
     read4CC() {
         const {pos, end, bytes, updatePosBy}=this;

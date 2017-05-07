@@ -7,7 +7,6 @@ const express = require('express'),
 app.set('port', 3001);
 serverConfig.configureCors(app);
 serverConfig.configureSession(app);
-serverConfig.configureSecurity(app);
 
 // initiate routes
 routes.forEach(route => {
