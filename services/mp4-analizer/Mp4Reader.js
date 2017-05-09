@@ -433,7 +433,7 @@ class MP4Reader {
     readSortSamples() {
         const {audioSamples, videoNalUnits, total} = this.digestSamples(), sortedSamples = [];
         //samples were read in order so i can assume the video and audio are already sorted, now lets merge them
-        let videoIndex = 0, audioIndex = 0;
+        let videoIndex = 0, audioIndex = 0, maxSize = 0;
         for (let i = 0; i < total; i++) {
             const nalUnit = videoNalUnits[videoIndex] || {},
                 audioSample = audioSamples[audioIndex] || {},
@@ -446,6 +446,7 @@ class MP4Reader {
                     data: nalUnit.data,
                     size: nalUnit.size
                 });
+                maxSize = nalUnit.size > maxSize ? nalUnit.size : maxSize;
                 videoIndex++;
             } else { // audio is behind or video offset is null, push that
                 sortedSamples.push({
@@ -454,10 +455,15 @@ class MP4Reader {
                     data: audioSample.data,
                     size: audioSample.size
                 });
+                maxSize = audioSample.size > maxSize ? audioSample.size : maxSize;
                 audioIndex++;
             }
         }
-        return sortedSamples;
+        return {
+            Uint8Size: 3, // i want to use the first bit to indicate frame type , that leaves us with 23 more bits to work with witch is 8388607
+            largestSize: maxSize, //probably for debug only
+            sortedSamples: sortedSamples
+        };
     }
 
     //TODO:GENERAL - make sound work, somehow
