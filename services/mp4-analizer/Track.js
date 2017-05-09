@@ -123,11 +123,42 @@ class Track {
         }
     }
 
+
     getSampleBytes(sample) {
         const bytes = this.file.stream.bytes,
             offset = this.sampleToOffset(sample),
             length = this.sampleToSize(sample, 1);
         return bytes.subarray(offset, offset + length);
+    }
+
+    digestSampleBytes(sample) {
+        const bytes = this.file.stream.bytes,
+            offset = this.sampleToOffset(sample),
+            size = this.sampleToSize(sample, 1);
+        return {
+            offset: offset,
+            data: bytes.subarray(offset, offset + size),
+            size: size
+        }
+    }
+
+    digestSampleNALUnits(sample) {
+        //TODO: Optimize!
+        const nalUnits = [],
+            bytes = this.file.stream.bytes;
+        let offset = this.sampleToOffset(sample),
+            end = offset + this.sampleToSize(sample, 1);
+
+        while (end - offset > 0) {
+            const size = (new BytesStream(bytes.buffer, offset)).readU32();
+            nalUnits.push({
+                offset: offset,
+                data: bytes.subarray(offset + 4, offset + size + 4),
+                size: size
+            });
+            offset += size + 4;
+        }
+        return nalUnits;
     }
 
     getSampleNALUnits(sample) {

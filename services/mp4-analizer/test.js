@@ -17,5 +17,6 @@ module.exports=()=>{
         mp4=new Mp4Reader(data);
     mp4.read();
     mp4.traceSamples();
+   // mp4.readSortSamples(); // returns sorted audio and video data with sizes and sample counter
     return {success:true , headers : convertHeadersForComparison(mp4)};
 };

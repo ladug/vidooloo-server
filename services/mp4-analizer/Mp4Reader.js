@@ -410,6 +410,56 @@ class MP4Reader {
         return box;
     }
 
+    digestSamples() {
+        const video = this.tracks[1],
+            audio = this.tracks[2],
+            videoNalUnits = [],
+            audioSamples = [];
+        //get video samples, translate to nal untis and shove in to an array
+        for (let i = 0; i < video.sampleCount; i++) {
+            (video.digestSampleNALUnits(i)).forEach(nalUnit => videoNalUnits.push(nalUnit))
+        }
+        //get audio samples and shove them in audio array
+        for (let i = 0; i < audio.sampleCount; i++) {
+            audioSamples.push(audio.digestSampleBytes(i))
+        }
+        return {
+            audioSamples: audioSamples,
+            videoNalUnits: videoNalUnits,
+            total: audioSamples.length + videoNalUnits.length
+        }
+    }
+
+    readSortSamples() {
+        const {audioSamples, videoNalUnits, total} = this.digestSamples(), sortedSamples = [];
+        //samples were read in order so i can assume the video and audio are already sorted, now lets merge them
+        let videoIndex = 0, audioIndex = 0;
+        for (let i = 0; i < total; i++) {
+            const nalUnit = videoNalUnits[videoIndex] || {},
+                audioSample = audioSamples[audioIndex] || {},
+                nalOffset = nalUnit ? nalUnit.offset : null,
+                audioOffset = audioSample ? audioSample.offset : null;
+            if (nalOffset < audioOffset && nalOffset != null) { //video is behind, push that
+                sortedSamples.push({
+                    isVideo: true,
+                    sample: videoIndex,
+                    data: nalUnit.data,
+                    size: nalUnit.size
+                });
+                videoIndex++;
+            } else { // audio is behind or video offset is null, push that
+                sortedSamples.push({
+                    isVideo: false,
+                    sample: audioIndex,
+                    data: audioSample.data,
+                    size: audioSample.size
+                });
+                audioIndex++;
+            }
+        }
+        return sortedSamples;
+    }
+
     //TODO:GENERAL - make sound work, somehow
     traceSamples() { //this funtion is never in use, not sure what to make of this, debug i guess
         const video = this.tracks[1],
@@ -420,7 +470,7 @@ class MP4Reader {
 
         let vi = 0, ai = 0;
 
-        for (let i = 0; i < 100; i++) {
+        for (var i = 0; i < video.sampleCount + audio.sampleCount; i++) {
             let vo = video.sampleToOffset(vi),      //video Offset
                 ao = audio.sampleToOffset(ai),      //audio Offset
                 vs = video.sampleToSize(vi, 1),     //video Size
