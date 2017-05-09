@@ -123,6 +123,13 @@ class Track {
         }
     }
 
+    getSampleBytes(sample) {
+        const bytes = this.file.stream.bytes,
+            offset = this.sampleToOffset(sample),
+            length = this.sampleToSize(sample, 1);
+        return bytes.subarray(offset, offset + length);
+    }
+
     getSampleNALUnits(sample) {
         const nalUnits = [],
             bytes = this.file.stream.bytes;
