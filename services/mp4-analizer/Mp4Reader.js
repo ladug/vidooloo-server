@@ -225,8 +225,8 @@ class MP4Reader {
             profileCompatibility: stream.readU8(),
             avcLevelIndication: stream.readU8(),
             lengthSizeMinusOne: stream.readU8() & 3,
-            pps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))[0],
-            sps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))[0]
+            sps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))[0],
+            pps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))[0]
         });
         assert(box.lengthSizeMinusOne === 3, "TODO");
         stream.skip(box.size - (stream.position - box.offset));
