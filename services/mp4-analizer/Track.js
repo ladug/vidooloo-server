@@ -74,7 +74,7 @@ class Track {
     } ;
 
     getTotalTimeInSeconds() {
-        return (this.timeToSeconds(this.duration / this.timeScale))
+        return this.timeToSeconds(this.duration);
     }
 
     chunkToOffset(chunk) {
@@ -156,11 +156,11 @@ class Track {
             for (let i = 0; i < item.count; i++) {
                 const sample = res.length,
                     total = res.total;
-                res.sampleToTime[sample] = total + item.delta;
+                res.sampleToTime[sample] = total;
                 res.sampleToLength[sample] = item.delta;
                 res.timeToSample[total + item.delta] = sample;
                 res.length++;
-                res.total = total + item.delta;
+                res.total += item.delta;
             }
             return res;
         }, {
