@@ -219,6 +219,7 @@ class MP4Reader {
         //TODO: update box parsing
         // The NAL Length is not required to be 4!
         // The AvcConfigurationBox ('moov/trak/mdia/minf/stbl/stsd/avc1/avcC') contains a field 'lengthSizeMinusOne' specifying the length. But the default is 4.
+        // box guide http://doublescn.appspot.com/?p=3124001
         Object.assign(box, {
             configurationVersion: stream.readU8(),
             avcProfileIndication: stream.readU8(),
