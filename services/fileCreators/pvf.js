@@ -11,7 +11,8 @@ const create = (digest, filename, fileId) => {
         pvfVideoMap = [],
         pvfAudioMap = [];
     let fileOffset = 56, //i include the fileId and file type here
-        nextAudioIsKey = false;
+        isPreviousVideo = true,
+        storedAudioSampleInfo = {};
 
     /* write pvf file type and id */
     File.writeString(pvfFile, "ftyp"); //write file type header -- no real reason to write this... still
@@ -23,10 +24,6 @@ const create = (digest, filename, fileId) => {
             {pvfChunk, svfChunk, pvfChunkLength, svfChunkLength} = File.getSplitSample(data, size, skipFactor),
             sampleDuration = isVideo ? videoSamplesTime.sampleToLength[sample] : audioSamplesTime.sampleToLength[sample]
 
-        fileOffset += 3; // add header size to the total offset
-        fileOffset += 2; // add duration size to the total offset
-        fileOffset += pvfChunkLength; // add data size to the total offset
-
         pvfExtractions.push({
             skipFactor: skipFactor,
             chunk: svfChunk,
@@ -36,30 +33,36 @@ const create = (digest, filename, fileId) => {
         if (isVideo) {
             if (isKey) {
                 pvfVideoMap.push({
-                    offset: fileOffset,
+                    offset: fileOffset, //offset from the beginning of the file
                     sample: sample,
-                    time: videoSamplesTime.sampleToTime[sample],
-                    duration: sampleDuration
+                    time: videoSamplesTime.sampleToTime[sample]
                 });
-                nextAudioIsKey = true; //TODO: don't have brain capacity to use previous audio sample group, so.., todo
+                //push previous audio sample group leader as well
+                pvfAudioMap.push(storedAudioSampleInfo);
             }
-        } else {
-            if (nextAudioIsKey) {
-                pvfAudioMap.push({
-                    offset: fileOffset,
+        } else { //TODO: check if previous audio sample is nessesary or if its best to group by play time
+            if (isPreviousVideo) { //should keep the last audio group lead sample
+                storedAudioSampleInfo = {
+                    offset: fileOffset, //offset from the beginning of the file
                     sample: sample,
-                    time: audioSamplesTime.sampleToTime[sample],
-                    duration: sampleDuration
-                });
-                nextAudioIsKey = false;
+                    time: audioSamplesTime.sampleToTime[sample]
+                }
             }
         }
 
-        // write data to PVF
+        /*Write To PVF File*/
         File.writeSizeAndFlags(pvfFile, size, isVideo, isKey); //write sample header
-        File.writeData(pvfFile, new Uint16Array([sampleDuration])); //write sample duration //TODO:Check if its a good idia or beter to export the original table instead
+        fileOffset += 3; // add header size to the total offset
+
+        File.writeUint16(pvfFile, sampleDuration); //write sample duration //TODO:Check if its a good idia or beter to export the original table instead
+        fileOffset += 2; // add duration size to the total offset
+
         File.writeData(pvfFile, pvfChunk); //write sample data
+        fileOffset += pvfChunkLength; // add data size to the total offset
+
+        isPreviousVideo = isVideo;
     });
+
     pvfFile.end();
     return {
         extractions: pvfExtractions,
