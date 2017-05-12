@@ -79,59 +79,6 @@ const getSplitSample = (data, size, skipFactor) => {
         });
 };
 
-const writePvfFile = (digest, pvfFileName, svfFileName) => {
-    const {sortedSamples, videoSamplesTime, audioSamplesTime} = digest,
-        pvfIdStr = svfDataBase.generatePvfId(),
-        pvfExtractions = [],
-        pvfVideoMap = [],
-        pvfAudioMap = [];
-
-    const pvfFile = fs.createWriteStream(pvfFileName);
-    let fileOffset = 0, nextAudioIsKey = false;
-    sortedSamples.forEach(({isVideo, sample, isKey, size, data}) => {
-        const skipFactor = File.generateSkipFactor(size),
-            {pvfChunk, svfChunk, pvfChunkLength, svfChunkLength} = File.getSplitSample(size, data, skipFactor);
-
-        fileOffset += 3; // add header size to the total offset
-        fileOffset += pvfChunkLength; // add data size to the total offset
-
-        pvfExtractions.push({
-            skipFactor: skipFactor,
-            chunk: svfChunk,
-            size: svfChunkLength
-        });
-
-        if (isVideo) {
-            if (isKey) {
-                pvfVideoMap.push({
-                    offset: fileOffset,
-                    sample: sample,
-                    time: videoSamplesTime.timeToSample[sample],
-                    length: videoSamplesTime.sampleToLength[sample]
-                });
-                nextAudioIsKey = true; //TODO: don't have brain capacity to use previous audio sample group, so.., todo
-            }
-        } else {
-            if (nextAudioIsKey) {
-                pvfAudioMap.push({
-                    offset: fileOffset,
-                    sample: sample,
-                    time: audioSamplesTime.timeToSample[sample],
-                    length: audioSamplesTime.sampleToLength[sample]
-                });
-                nextAudioIsKey = false;
-            }
-        }
-
-        // write data to PVF
-        File.writeSizeAndFlags(file, size, isVideo, isKey);
-        File.writeData(pvfChunk);
-    });
-    pvfFile.end();
-
-
-};
-
 const writeSvfMap = (file, map) => {
     map.forEach((offset, sample, time, duration) => {
         writeData(file, new Uint32Array([offset])); //4 bytes
