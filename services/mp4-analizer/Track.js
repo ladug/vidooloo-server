@@ -89,28 +89,6 @@ class Track {
         return size;
     }
 
-    digestSamplesTime() { // get time map of time/sample, sample/time and sample/length
-        const table = this.sttsTable;
-        return table.reduce((res, item) => {
-            for (let i = 0; i < item.count; i++) {
-                const sample = res.length,
-                    total = res.total;
-                res.sampleToTime[sample] = total + item.delta;
-                res.sampleToLength[sample] = item.delta;
-                res.timeToSample[total + item.delta] = sample;
-                res.length++;
-                res.total = total + item.delta;
-            }
-            return res;
-        }, {
-            length: 0,
-            total: 0,
-            sampleToTime: {},
-            sampleToLength: {},
-            timeToSample: {}
-        });
-    }
-
     sampleToChunk(sample) {
         const table = this.stscTable;
         let totalChunkCount = 0;
@@ -165,12 +143,34 @@ class Track {
         }
     }
 
-
     getSampleBytes(sample) {
         const bytes = this.file.stream.bytes,
             offset = this.sampleToOffset(sample),
             length = this.sampleToSize(sample, 1);
         return bytes.subarray(offset, offset + length);
+    }
+
+    digestSamplesTime() { // get time map of time/sample, sample/time and sample/length
+        const table = this.sttsTable;
+        const test = table.reduce((res, item) => {
+            for (let i = 0; i < item.count; i++) {
+                const sample = res.length,
+                    total = res.total;
+                res.sampleToTime[sample] = total + item.delta;
+                res.sampleToLength[sample] = item.delta;
+                res.timeToSample[total + item.delta] = sample;
+                res.length++;
+                res.total = total + item.delta;
+            }
+            return res;
+        }, {
+            length: 0,
+            total: 0,
+            sampleToTime: {},
+            sampleToLength: {},
+            timeToSample: {}
+        });
+        return test;
     }
 
     digestSampleBytes(sample, isKey) {

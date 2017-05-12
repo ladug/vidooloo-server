@@ -415,7 +415,7 @@ class MP4Reader {
             audio = this.tracks[2],
             videoKeySamples = video.syncSampleTable,
             videoSampleToKey = videoKeySamples.reduce((res, sample) => {
-                res[sample] = true;
+                res[sample - 1] = true; //the only table that has sample numbers uses 1-x instead of 0-x, floor it down
                 return res;
             }, {}),
             videoNalUnits = [],
@@ -428,7 +428,7 @@ class MP4Reader {
         }
         //get audio samples and shove them in audio array
         for (let i = 0; i < audio.sampleCount; i++) {
-            audioSamples.push(audio.digestSampleBytes(i, true))
+            audioSamples.push(audio.digestSampleBytes(i, true)); //all the audio frames are key frames
         }
         return {
             videoSamplesTime: video.digestSamplesTime(),
