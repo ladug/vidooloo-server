@@ -57,6 +57,10 @@ class Track {
         return this.trak.mdia.minf.stbl.stsd.avc1.avcC;
     }
 
+    get mp4a() {
+        return this.trak.mdia.minf.stbl.stsd.mp4a;
+    }
+
     get syncSampleTable() {
         return this.trak.mdia.minf.stbl.stss ? this.trak.mdia.minf.stbl.stss.samples : null;
     }
@@ -176,6 +180,7 @@ class Track {
         return {
             isKey: !!isKey,
             offset: offset,
+            sample: sample,
             data: bytes.subarray(offset, offset + size),
             size: size
         }
@@ -193,6 +198,7 @@ class Track {
             nalUnits.push({
                 isKey: !!isKey,
                 offset: offset,
+                sample: sample,
                 data: bytes.subarray(offset + 4, offset + size + 4),
                 size: size
             });

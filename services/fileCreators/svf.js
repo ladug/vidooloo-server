@@ -20,13 +20,15 @@
  NOTE* thought the SVF chunk size is Uint8 we will have to resort to Uint20 when sending to client
  */
 
-const File = require('./common');
-
+const File = require('./common'),
+    fs = require('fs');
 /* Create SVF File */
 const create = (mp4, extractions, audioMap, videoMap, filename) => {
     const video = mp4.tracks[1],
         audio = mp4.tracks[2],
         svfFile = fs.createWriteStream(filename),
+        avc = video.avc,
+        mp4a = audio.mp4a,
         videoMapSize = videoMap.length * 13,
         audioMapSize = audioMap.length * 13,
         mapsSize = 2 + videoMapSize + 2 + audioMapSize; //2 is the size of the header ( Uint16 )

@@ -451,7 +451,8 @@ class MP4Reader {
             if (nalOffset < audioOffset && nalOffset != null) { //video is behind, push that
                 sortedSamples.push({
                     isVideo: true,
-                    sample: videoIndex,
+                    isKey: nalUnit.isKey,
+                    sample: nalUnit.sample,
                     data: nalUnit.data,
                     size: nalUnit.size
                 });
@@ -460,7 +461,8 @@ class MP4Reader {
             } else { // audio is behind or video offset is null, push that
                 sortedSamples.push({
                     isVideo: false,
-                    sample: audioIndex,
+                    isKey: audioSample.isKey,
+                    sample: audioSample.sample,
                     data: audioSample.data,
                     size: audioSample.size
                 });

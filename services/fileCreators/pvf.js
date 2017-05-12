@@ -1,7 +1,8 @@
 /**
  * Created by vladi on 12-May-17.
  */
-const File = require('./common');
+const File = require('./common'),
+    fs = require('fs');
 /* Create PVF File */
 const create = (digest, filename, fileId) => {
     const {sortedSamples, videoSamplesTime, audioSamplesTime} = digest,
@@ -19,7 +20,7 @@ const create = (digest, filename, fileId) => {
 
     sortedSamples.forEach(({isVideo, sample, isKey, size, data}) => {
         const skipFactor = File.generateSkipFactor(size),
-            {pvfChunk, svfChunk, pvfChunkLength, svfChunkLength} = File.getSplitSample(size, data, skipFactor),
+            {pvfChunk, svfChunk, pvfChunkLength, svfChunkLength} = File.getSplitSample(data, size, skipFactor),
             sampleDuration = isVideo ? audioSamplesTime.sampleToLength[sample] : videoSamplesTime.sampleToLength[sample]
 
         fileOffset += 3; // add header size to the total offset
@@ -55,9 +56,9 @@ const create = (digest, filename, fileId) => {
         }
 
         // write data to PVF
-        File.writeSizeAndFlags(file, size, isVideo, isKey); //write sample header
-        File.writeData(new Uint16Array([sampleDuration])); //write sample duration //TODO:Check if its a good idia or beter to export the original table instead
-        File.writeData(pvfChunk); //write sample data
+        File.writeSizeAndFlags(pvfFile, size, isVideo, isKey); //write sample header
+        File.writeData(pvfFile, new Uint16Array([sampleDuration])); //write sample duration //TODO:Check if its a good idia or beter to export the original table instead
+        File.writeData(pvfFile, pvfChunk); //write sample data
     });
     pvfFile.end();
     return {
@@ -67,4 +68,6 @@ const create = (digest, filename, fileId) => {
     }
 };
 
-module.exports = {}
+module.exports = {
+    create
+};
