@@ -7,6 +7,7 @@ const {assert, noBreakingError, BOX_HEADER_SIZE, FULL_BOX_HEADER_SIZE} = require
     BytesStream = require('./BytesStream');
 
 const boxTypeName = {
+    "adcd": "Audio Decoder Config Descriptor",
     "ftyp": "File Type Box",
     "moov": "Movie Box",
     "mvhd": "Movie Header Box",
@@ -129,9 +130,8 @@ class MP4Reader {
         Object.assign(box, {
             version: stream.readU8(),
             flags: stream.readU24(),
+            adcd: stream.readU8Array(box.size - (stream.position - box.offset))
         });
-        // TODO: Do we really need to parse this? for now lets skip all of it
-        stream.skip(box.size - (stream.position - box.offset));
     };
 
     btrtBox(stream, box) {
@@ -216,16 +216,19 @@ class MP4Reader {
     };
 
     avcCBox(stream, box) {
+        //TODO: update box parsing
+        // The NAL Length is not required to be 4!
+        // The AvcConfigurationBox ('moov/trak/mdia/minf/stbl/stsd/avc1/avcC') contains a field 'lengthSizeMinusOne' specifying the length. But the default is 4.
         Object.assign(box, {
             configurationVersion: stream.readU8(),
             avcProfileIndication: stream.readU8(),
             profileCompatibility: stream.readU8(),
             avcLevelIndication: stream.readU8(),
             lengthSizeMinusOne: stream.readU8() & 3,
-            sps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16())),
-            pps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))
+            pps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))[0],
+            sps: (new Array(stream.readU8() & 31)).fill().map(() => stream.readU8Array(stream.readU16()))[0]
         });
-        assert(box.lengthSizeMinusOne == 3, "TODO");
+        assert(box.lengthSizeMinusOne === 3, "TODO");
         stream.skip(box.size - (stream.position - box.offset));
     };
 

@@ -22,13 +22,50 @@
 
 const File = require('./common'),
     fs = require('fs');
+
+
+sampleRate: 44100
+bitsPerChannel: 0
+channelsPerFrame: 2
+bytesPerPacket: 0
+framesPerPacket: 1024
+duration: 38659
+data: 'd21b23ee'
+
+const extractMp4aData = mp4a => {
+    return {
+        channels: mp4a.channelCount,
+        compressionId: mp4a.compressionId, //not sure we need this
+        adcd: mp4a.esds.adcd,
+        adcdSize: mp4a.esds.adcd.byteLength,
+        packetSize: mp4a.packetSize,
+        sampleRate: mp4a.sampleRate,
+        sampleSize: mp4a.sampleSize,
+        version: mp4a.version
+    };
+};
+
+
+const extractAvcData = avc => {
+    File.assert(avc.configurationVersion === 1, "Cant handle other levels yet!")
+    return {
+        version: avc.configurationVersion,
+        level: avc.avcLevelIndication,
+        profile: avc.avcProfileIndication,
+        compatibility: avc.profileCompatibility,
+        pps: avc.pps,
+        ppsSize: avc.pps.byteLength,
+        sps: avc.sps,
+        spsSize: avc.sps.byteLength,
+    };
+};
 /* Create SVF File */
 const create = (mp4, extractions, audioMap, videoMap, filename) => {
     const video = mp4.tracks[1],
         audio = mp4.tracks[2],
         svfFile = fs.createWriteStream(filename),
-        avc = video.avc,
-        mp4a = audio.mp4a,
+        avc = extractAvcData(video.avc),
+        mp4a = extractMp4aData(audio.mp4a),
         videoMapSize = videoMap.length * 11,
         audioMapSize = audioMap.length * 11,
         mapsSize = 2 + videoMapSize + 2 + audioMapSize; //2 is the size of the header ( Uint16 )
