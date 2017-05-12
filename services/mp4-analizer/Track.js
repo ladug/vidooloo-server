@@ -185,27 +185,6 @@ class Track {
         }
     }
 
-    digestSampleNALUnits(sample, isKey) {
-        //TODO: Optimize!
-        const nalUnits = [],
-            bytes = this.file.stream.bytes;
-        let offset = this.sampleToOffset(sample),
-            end = offset + this.sampleToSize(sample, 1);
-
-        while (end - offset > 0) {
-            const size = (new BytesStream(bytes.buffer, offset)).readU32();
-            nalUnits.push({
-                isKey: !!isKey,
-                offset: offset,
-                sample: sample,
-                data: bytes.subarray(offset + 4, offset + size + 4),
-                size: size
-            });
-            offset += size + 4;
-        }
-        return nalUnits;
-    }
-
     getSampleNALUnits(sample) {
         const nalUnits = [],
             bytes = this.file.stream.bytes;

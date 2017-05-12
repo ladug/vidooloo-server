@@ -35,10 +35,10 @@ const writeDataToFile = (mp4, pvfFileName, svfFileName) => {
     return !!isComplete;
 };
 module.exports = () => {
-    const data = fs.readFileSync('./demo-movies/tree.mp4'),
+    // const data = fs.readFileSync('./demo-movies/tree.mp4'),
+    const data = fs.readFileSync('./demo-movies/mozilla_story.mp4'),
         mp4 = new Mp4Reader(data);
     mp4.read();
-    mp4.traceSamples();
     writeDataToFile(
         mp4,
         "./files/pvf/" + (new Date()).getTime() + ".pvf",

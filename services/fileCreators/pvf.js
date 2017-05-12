@@ -12,7 +12,7 @@ const create = (digest, filename, fileId) => {
         pvfAudioMap = [];
     let fileOffset = 56, //i include the fileId and file type here
         isFirstVideo = sortedSamples[0].isVideo,
-        isPreviousVideo = isFirstVideo,
+        isPreviousVideo = !isFirstVideo,
         isAudioMapPending = false,
         storedAudioSampleInfo = {};
 
@@ -45,19 +45,21 @@ const create = (digest, filename, fileId) => {
             }
         } else {
             if (isPreviousVideo) {
-                const audioTimeInSeconds = audioSamplesTime.sampleToTime[sample] / audioTimeScale,
-                    videoTimeInSeconds = pvfVideoMap[pvfVideoMap.length - 1].time / videoTimeScale
-                if (isAudioMapPending && audioTimeInSeconds > videoTimeInSeconds) {
-                    pvfAudioMap.push(storedAudioSampleInfo);
-                    isAudioMapPending = false;
-                }
-
-                //keep the last audio group lead sample
-                storedAudioSampleInfo = {
-                    offset: fileOffset, //offset from the beginning of the file
-                    sample: sample,
-                    time: audioSamplesTime.sampleToTime[sample],
-                    timeInSeconds: audioSamplesTime.sampleToTime[sample] / audioTimeScale
+                if (isAudioMapPending) {
+                    const audioTimeInSeconds = audioSamplesTime.sampleToTime[sample] / audioTimeScale,
+                        videoTimeInSeconds = pvfVideoMap[pvfVideoMap.length - 1].time / videoTimeScale
+                    if (isAudioMapPending && audioTimeInSeconds > videoTimeInSeconds) {
+                        pvfAudioMap.push(storedAudioSampleInfo);
+                        isAudioMapPending = false;
+                    }
+                } else {
+                    //keep the last audio group lead sample
+                    storedAudioSampleInfo = {
+                        offset: fileOffset, //offset from the beginning of the file
+                        sample: sample,
+                        time: audioSamplesTime.sampleToTime[sample],
+                        timeInSeconds: audioSamplesTime.sampleToTime[sample] / audioTimeScale
+                    }
                 }
             }
         }
@@ -66,7 +68,7 @@ const create = (digest, filename, fileId) => {
         File.writeSizeAndFlags(pvfFile, size, isVideo, isKey); //write sample header
         fileOffset += 3; // add header size to the total offset
 
-        File.writeUint16(pvfFile, sampleDuration); //write sample duration //TODO:Check if its a good idia or beter to export the original table instead
+        File.writeUint16(pvfFile, sampleDuration); //write sample duration //TODO:Check if its a good idea or better to export the original table instead
         fileOffset += 2; // add duration size to the total offset
 
         File.writeData(pvfFile, pvfChunk); //write sample data

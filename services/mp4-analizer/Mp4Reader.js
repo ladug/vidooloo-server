@@ -418,17 +418,16 @@ class MP4Reader {
                 res[sample - 1] = true; //the only table that has sample numbers uses 1-x instead of 0-x, floor it down
                 return res;
             }, {}),
-            videoNalUnits = [],
+            videoSamples = [],
             audioSamples = [];
 
-        //TODO: i am not sure i should spread nal units here and not in the client side...
-        //get video samples, translate to nal untis and shove in to an array
+        //get video samples and shove them in audio array
         for (let i = 0; i < video.sampleCount; i++) {
-            (video.digestSampleNALUnits(i, videoSampleToKey[i])).forEach(nalUnit => videoNalUnits.push(nalUnit))
+            videoSamples.push(video.digestSampleBytes(i, videoSampleToKey[i]));
         }
         //get audio samples and shove them in audio array
         for (let i = 0; i < audio.sampleCount; i++) {
-            audioSamples.push(audio.digestSampleBytes(i, true)); //all the audio frames are key frames
+            audioSamples.push(audio.digestSampleBytes(i, (Math.random() * 10 >= 5))); //all the audio frames are key frames, can safely randomize
         }
         return {
             videoSamplesTime: video.digestSamplesTime(),
@@ -436,35 +435,35 @@ class MP4Reader {
             videoTimeScale: video.timeScale,
             audioTimeScale: audio.timeScale,
             audioSamples: audioSamples,
-            videoNalUnits: videoNalUnits,
-            total: audioSamples.length + videoNalUnits.length
+            videoSamples: videoSamples,
+            total: audioSamples.length + videoSamples.length
         }
     }
 
     readSortSamples() {
-        const {audioSamples, videoNalUnits, total, videoSamplesTime, audioSamplesTime, audioTimeScale, videoTimeScale} = this.digestSamples(), sortedSamples = [];
+        const {audioSamples, videoSamples, total, videoSamplesTime, audioSamplesTime, audioTimeScale, videoTimeScale} = this.digestSamples(), sortedSamples = [];
         //samples were read in order so i can assume the video and audio are already sorted, now lets merge them
         let videoIndex = 0, audioIndex = 0, maxSize = 0;
         for (let i = 0; i < total; i++) {
-            const nalUnit = videoNalUnits[videoIndex] || {},
+            const videoSample = videoSamples[videoIndex] || {},
                 audioSample = audioSamples[audioIndex] || {},
-                nalOffset = nalUnit ? nalUnit.offset : null,
+                videoOffset = videoSample ? videoSample.offset : null,
                 audioOffset = audioSample ? audioSample.offset : null;
-            assert((audioOffset || nalOffset) && nalOffset !== audioOffset, "Fatal! bad frames extraction!");
+            assert((audioOffset || videoOffset) && videoOffset !== audioOffset, "Fatal! bad frames extraction!");
 
-            if (audioOffset > nalOffset || !audioOffset) { //video is behind, push that
+            if (audioOffset > videoOffset || !audioOffset) { //video is behind, push that
                 sortedSamples.push({
                     isVideo: true,
-                    isKey: nalUnit.isKey,
-                    sample: nalUnit.sample,
-                    data: nalUnit.data,
-                    size: nalUnit.size
+                    isKey: videoSample.isKey,
+                    sample: videoSample.sample,
+                    data: videoSample.data,
+                    size: videoSample.size
                 });
-                maxSize = nalUnit.size > maxSize ? nalUnit.size : maxSize;
+                maxSize = videoSample.size > maxSize ? videoSample.size : maxSize;
                 videoIndex++;
                 continue; //tiny optimization
             }
-            if (nalOffset > audioOffset || !nalOffset) { // audio is behind or video offset is null, push that
+            if (videoOffset > audioOffset || !videoOffset) { // audio is behind or video offset is null, push that
                 sortedSamples.push({
                     isVideo: false,
                     isKey: audioSample.isKey,
@@ -484,32 +483,6 @@ class MP4Reader {
             largestSize: maxSize, //probably for debug only
             sortedSamples: sortedSamples
         };
-    }
-
-    //TODO:GENERAL - make sound work, somehow
-    traceSamples() { //this funtion is never in use, not sure what to make of this, debug i guess
-        const video = this.tracks[1],
-            audio = this.tracks[2];
-
-        console.info("Video Samples: " + video.sampleCount);
-        console.info("Audio Samples: " + audio.sampleCount);
-
-        let vi = 0, ai = 0;
-
-        for (var i = 0; i < video.sampleCount + audio.sampleCount; i++) {
-            let vo = video.sampleToOffset(vi),      //video Offset
-                ao = audio.sampleToOffset(ai),      //audio Offset
-                vs = video.sampleToSize(vi, 1),     //video Size
-                as = audio.sampleToSize(ai, 1);     //audio Size
-
-            if (vo < ao) {
-                console.info("V Sample " + vi + " Offset : " + vo + ", Size : " + vs);
-                vi++;
-            } else {
-                console.info("A Sample " + ai + " Offset : " + ao + ", Size : " + as);
-                ai++;
-            }
-        }
     }
 }
 

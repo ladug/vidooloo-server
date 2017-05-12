@@ -98,7 +98,6 @@ const assert = (condition, message) => {
     return true;
 };
 
-
 module.exports = {
     assert,
     writeData,
