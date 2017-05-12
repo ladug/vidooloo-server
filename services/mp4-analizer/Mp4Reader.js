@@ -433,6 +433,8 @@ class MP4Reader {
         return {
             videoSamplesTime: video.digestSamplesTime(),
             audioSamplesTime: audio.digestSamplesTime(),
+            videoTimeScale: video.timeScale,
+            audioTimeScale: audio.timeScale,
             audioSamples: audioSamples,
             videoNalUnits: videoNalUnits,
             total: audioSamples.length + videoNalUnits.length
@@ -440,7 +442,7 @@ class MP4Reader {
     }
 
     readSortSamples() {
-        const {audioSamples, videoNalUnits, total, videoSamplesTime, audioSamplesTime} = this.digestSamples(), sortedSamples = [];
+        const {audioSamples, videoNalUnits, total, videoSamplesTime, audioSamplesTime, audioTimeScale, videoTimeScale} = this.digestSamples(), sortedSamples = [];
         //samples were read in order so i can assume the video and audio are already sorted, now lets merge them
         let videoIndex = 0, audioIndex = 0, maxSize = 0;
         for (let i = 0; i < total; i++) {
@@ -448,7 +450,9 @@ class MP4Reader {
                 audioSample = audioSamples[audioIndex] || {},
                 nalOffset = nalUnit ? nalUnit.offset : null,
                 audioOffset = audioSample ? audioSample.offset : null;
-            if (nalOffset < audioOffset && nalOffset != null) { //video is behind, push that
+            assert((audioOffset || nalOffset) && nalOffset !== audioOffset, "Fatal! bad frames extraction!");
+
+            if (audioOffset > nalOffset || !audioOffset) { //video is behind, push that
                 sortedSamples.push({
                     isVideo: true,
                     isKey: nalUnit.isKey,
@@ -458,7 +462,9 @@ class MP4Reader {
                 });
                 maxSize = nalUnit.size > maxSize ? nalUnit.size : maxSize;
                 videoIndex++;
-            } else { // audio is behind or video offset is null, push that
+                continue; //tiny optimization
+            }
+            if (nalOffset > audioOffset || !nalOffset) { // audio is behind or video offset is null, push that
                 sortedSamples.push({
                     isVideo: false,
                     isKey: audioSample.isKey,
@@ -473,6 +479,8 @@ class MP4Reader {
         return {
             videoSamplesTime,
             audioSamplesTime,
+            audioTimeScale,
+            videoTimeScale,
             largestSize: maxSize, //probably for debug only
             sortedSamples: sortedSamples
         };
