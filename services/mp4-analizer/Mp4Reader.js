@@ -471,9 +471,8 @@ class MP4Reader {
             }
         }
         return {
-            videoSamplesTime: videoSamplesTime,
-            audioSamplesTime: audioSamplesTime,
-            Uint8Size: 3, // i want to use the first bit to indicate frame type , that leaves us with 23 more bits to work with witch is 8388607
+            videoSamplesTime,
+            audioSamplesTime,
             largestSize: maxSize, //probably for debug only
             sortedSamples: sortedSamples
         };

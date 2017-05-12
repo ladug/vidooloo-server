@@ -152,11 +152,11 @@ class Track {
 
     digestSamplesTime() { // get time map of time/sample, sample/time and sample/length
         const table = this.sttsTable;
-        const test = table.reduce((res, item) => {
+        return table.reduce((res, item) => {
             for (let i = 0; i < item.count; i++) {
                 const sample = res.length,
                     total = res.total;
-                res.sampleToTime[sample] = total;
+                res.sampleToTime[sample] = total; //sample offset time
                 res.sampleToLength[sample] = item.delta;
                 res.timeToSample[total + item.delta] = sample;
                 res.length++;
@@ -170,7 +170,6 @@ class Track {
             sampleToLength: {},
             timeToSample: {}
         });
-        return test;
     }
 
     digestSampleBytes(sample, isKey) {
