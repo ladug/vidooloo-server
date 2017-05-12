@@ -27,6 +27,10 @@ const writeUint24 = (file, data) => {
     file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 3)))
 };
 
+const writeUint32 = (file, data) => {
+    file.write(new Buffer(new Uint32Array([data])));
+};
+
 const writeSizeAndFlags = (file, size, isVideo, isKey) => { //total size 3 bytes
     let byte = size;
     byte += isVideo ? 8388608 : 0;
@@ -81,10 +85,10 @@ const getSplitSample = (data, size, skipFactor) => {
 
 const writeSvfMap = (file, map) => {
     map.forEach((offset, sample, time, duration) => {
-        writeData(file, new Uint32Array([offset])); //4 bytes
-        writeData(file, writeUint24(sample)); //3 bytes
-        writeData(file, new Uint32Array([time])); //4 bytes
-        writeData(file, new Uint16Array([duration])); //2 bytes
+        writeUint32(file, offset); //4 bytes
+        writeUint24(file, sample); //3 bytes
+        writeUint32(file, time); //4 bytes
+        writeUint16(file, duration); //2 bytes
     });
 };
 
@@ -94,6 +98,7 @@ module.exports = {
     writeUint8,
     writeUint16,
     writeUint24,
+    writeUint32,
     writeSizeAndFlags,
     generateSkipFactor,
     getSplitChunkSizes,
