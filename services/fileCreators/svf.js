@@ -32,10 +32,9 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
         mapsSize = 2 + videoMapSize + 2 + audioMapSize; //2 is the size of the header ( Uint16 )
     let offset = 0; // 8 is the size of 'ftyp' and 'svf1'
 
-
     /*write headers*/
-    File.writeString(svfFile, Buffer.from("ftyp")); //write file type header -- no real reason to write this... still
-    File.writeString(svfFile, Buffer.from("svf0")); //write svf main file type version
+    File.writeString(svfFile, "ftyp"); //write file type header -- no real reason to write this... still
+    File.writeString(svfFile, "svf0"); //write svf main file type version
     File.writeUint8(svfFile, 1); //write svf file sub-version type
     offset += 9;
 
