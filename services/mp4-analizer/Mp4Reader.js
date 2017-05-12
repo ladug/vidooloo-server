@@ -413,17 +413,26 @@ class MP4Reader {
     digestSamples() {
         const video = this.tracks[1],
             audio = this.tracks[2],
+            videoKeySamples = video.syncSampleTable,
+            videoSampleToKey = videoKeySamples.reduce((res, sample) => {
+                res[sample] = true;
+                return res;
+            }, {}),
             videoNalUnits = [],
             audioSamples = [];
+
+        //TODO: i am not sure i should spread nal units here and not in the client side...
         //get video samples, translate to nal untis and shove in to an array
         for (let i = 0; i < video.sampleCount; i++) {
-            (video.digestSampleNALUnits(i)).forEach(nalUnit => videoNalUnits.push(nalUnit))
+            (video.digestSampleNALUnits(i, videoSampleToKey[i])).forEach(nalUnit => videoNalUnits.push(nalUnit))
         }
         //get audio samples and shove them in audio array
         for (let i = 0; i < audio.sampleCount; i++) {
-            audioSamples.push(audio.digestSampleBytes(i))
+            audioSamples.push(audio.digestSampleBytes(i, true))
         }
         return {
+            videoSamplesTime: video.digestSamplesTime(),
+            audioSamplesTime: audio.digestSamplesTime(),
             audioSamples: audioSamples,
             videoNalUnits: videoNalUnits,
             total: audioSamples.length + videoNalUnits.length
@@ -431,7 +440,7 @@ class MP4Reader {
     }
 
     readSortSamples() {
-        const {audioSamples, videoNalUnits, total} = this.digestSamples(), sortedSamples = [];
+        const {audioSamples, videoNalUnits, total, videoSamplesTime, audioSamplesTime} = this.digestSamples(), sortedSamples = [];
         //samples were read in order so i can assume the video and audio are already sorted, now lets merge them
         let videoIndex = 0, audioIndex = 0, maxSize = 0;
         for (let i = 0; i < total; i++) {
@@ -460,6 +469,8 @@ class MP4Reader {
             }
         }
         return {
+            videoSamplesTime: videoSamplesTime,
+            audioSamplesTime: audioSamplesTime,
             Uint8Size: 3, // i want to use the first bit to indicate frame type , that leaves us with 23 more bits to work with witch is 8388607
             largestSize: maxSize, //probably for debug only
             sortedSamples: sortedSamples

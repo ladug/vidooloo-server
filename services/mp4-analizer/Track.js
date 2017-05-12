@@ -45,6 +45,22 @@ class Track {
         return this.trak.mdia.minf.stbl.stco.table;
     }
 
+    get height() {
+        return Math.ceil(this.trak.tkhd.height);
+    }
+
+    get width() {
+        return Math.ceil(this.trak.tkhd.width);
+    }
+
+    get avc() {
+        return this.trak.mdia.minf.stbl.stsd.avc1.avcC;
+    }
+
+    get syncSampleTable() {
+        return this.trak.mdia.minf.stbl.stss ? this.trak.mdia.minf.stbl.stss.samples : null;
+    }
+
     timeToSeconds(time) {
         return time / this.timeScale
     };
@@ -67,6 +83,28 @@ class Track {
             size += this.sampleSizeTable[i];
         }
         return size;
+    }
+
+    digestSamplesTime() { // get time map of time/sample, sample/time and sample/length
+        const table = this.sttsTable;
+        return table.reduce((res, item) => {
+            for (let i = 0; i < item.count; i++) {
+                const sample = res.length,
+                    total = res.total;
+                res.sampleToTime[sample] = total + item.delta;
+                res.sampleToLength[sample] = item.delta;
+                res.timeToSample[total + item.delta] = sample;
+                res.length++;
+                res.total = total + item.delta;
+            }
+            return res;
+        }, {
+            length: 0,
+            total: 0,
+            sampleToTime: {},
+            sampleToLength: {},
+            timeToSample: {}
+        });
     }
 
     sampleToChunk(sample) {
@@ -131,18 +169,19 @@ class Track {
         return bytes.subarray(offset, offset + length);
     }
 
-    digestSampleBytes(sample) {
+    digestSampleBytes(sample, isKey) {
         const bytes = this.file.stream.bytes,
             offset = this.sampleToOffset(sample),
             size = this.sampleToSize(sample, 1);
         return {
+            isKey: !!isKey,
             offset: offset,
             data: bytes.subarray(offset, offset + size),
             size: size
         }
     }
 
-    digestSampleNALUnits(sample) {
+    digestSampleNALUnits(sample, isKey) {
         //TODO: Optimize!
         const nalUnits = [],
             bytes = this.file.stream.bytes;
@@ -152,6 +191,7 @@ class Track {
         while (end - offset > 0) {
             const size = (new BytesStream(bytes.buffer, offset)).readU32();
             nalUnits.push({
+                isKey: !!isKey,
                 offset: offset,
                 data: bytes.subarray(offset + 4, offset + size + 4),
                 size: size
