@@ -21,7 +21,7 @@ const create = (digest, filename, fileId) => {
     sortedSamples.forEach(({isVideo, sample, isKey, size, data}) => {
         const skipFactor = File.generateSkipFactor(size),
             {pvfChunk, svfChunk, pvfChunkLength, svfChunkLength} = File.getSplitSample(data, size, skipFactor),
-            sampleDuration = isVideo ? audioSamplesTime.sampleToLength[sample] : videoSamplesTime.sampleToLength[sample]
+            sampleDuration = isVideo ? videoSamplesTime.sampleToLength[sample] : audioSamplesTime.sampleToLength[sample]
 
         fileOffset += 3; // add header size to the total offset
         fileOffset += 2; // add duration size to the total offset
@@ -38,7 +38,7 @@ const create = (digest, filename, fileId) => {
                 pvfVideoMap.push({
                     offset: fileOffset,
                     sample: sample,
-                    time: videoSamplesTime.timeToSample[sample],
+                    time: videoSamplesTime.sampleToTime[sample],
                     duration: sampleDuration
                 });
                 nextAudioIsKey = true; //TODO: don't have brain capacity to use previous audio sample group, so.., todo
@@ -48,7 +48,7 @@ const create = (digest, filename, fileId) => {
                 pvfAudioMap.push({
                     offset: fileOffset,
                     sample: sample,
-                    time: audioSamplesTime.timeToSample[sample],
+                    time: audioSamplesTime.sampleToTime[sample],
                     duration: sampleDuration
                 });
                 nextAudioIsKey = false;
@@ -63,7 +63,7 @@ const create = (digest, filename, fileId) => {
     pvfFile.end();
     return {
         extractions: pvfExtractions,
-        audioMap: pvfVideoMap,
+        audioMap: pvfAudioMap,
         videoMap: pvfVideoMap
     }
 };
