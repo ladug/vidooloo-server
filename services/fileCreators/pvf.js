@@ -5,13 +5,15 @@ const File = require('./common'),
     fs = require('fs');
 /* Create PVF File */
 const create = (digest, filename, fileId) => {
-    const {sortedSamples, videoSamplesTime, audioSamplesTime} = digest,
+    const {sortedSamples, videoSamplesTime, audioSamplesTime, videoTimeScale, audioTimeScale} = digest,
         pvfFile = fs.createWriteStream(filename),
         pvfExtractions = [],
         pvfVideoMap = [],
         pvfAudioMap = [];
     let fileOffset = 56, //i include the fileId and file type here
-        isPreviousVideo = true,
+        isFirstVideo = sortedSamples[0].isVideo,
+        isPreviousVideo = isFirstVideo,
+        isAudioMapPending = false,
         storedAudioSampleInfo = {};
 
     /* write pvf file type and id */
@@ -30,22 +32,32 @@ const create = (digest, filename, fileId) => {
             size: svfChunkLength
         });
 
+
         if (isVideo) {
             if (isKey) {
                 pvfVideoMap.push({
                     offset: fileOffset, //offset from the beginning of the file
                     sample: sample,
-                    time: videoSamplesTime.sampleToTime[sample]
+                    time: videoSamplesTime.sampleToTime[sample],
+                    timeInSeconds: videoSamplesTime.sampleToTime[sample] / videoTimeScale
                 });
-                //push previous audio sample group leader as well
-                pvfAudioMap.push(storedAudioSampleInfo);
+                isAudioMapPending = true;
             }
-        } else { //TODO: check if previous audio sample is nessesary or if its best to group by play time
-            if (isPreviousVideo) { //should keep the last audio group lead sample
+        } else {
+            if (isPreviousVideo) {
+                const audioTimeInSeconds = audioSamplesTime.sampleToTime[sample] / audioTimeScale,
+                    videoTimeInSeconds = pvfVideoMap[pvfVideoMap.length - 1].time / videoTimeScale
+                if (isAudioMapPending && audioTimeInSeconds > videoTimeInSeconds) {
+                    pvfAudioMap.push(storedAudioSampleInfo);
+                    isAudioMapPending = false;
+                }
+
+                //keep the last audio group lead sample
                 storedAudioSampleInfo = {
                     offset: fileOffset, //offset from the beginning of the file
                     sample: sample,
-                    time: audioSamplesTime.sampleToTime[sample]
+                    time: audioSamplesTime.sampleToTime[sample],
+                    timeInSeconds: audioSamplesTime.sampleToTime[sample] / audioTimeScale
                 }
             }
         }
@@ -62,8 +74,10 @@ const create = (digest, filename, fileId) => {
 
         isPreviousVideo = isVideo;
     });
-
     pvfFile.end();
+
+    File.assert(pvfVideoMap.length === pvfAudioMap.length, "Bad map extraction!");
+
     return {
         extractions: pvfExtractions,
         audioMap: pvfAudioMap,
