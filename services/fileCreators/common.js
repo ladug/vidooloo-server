@@ -15,6 +15,10 @@ const writeString = (file, string) => {
     file.write(Buffer.from(string));
 };
 
+const writeUint8 = (file, data) => {
+    file.write(new Buffer(new Uint8Array([data])));
+};
+
 const writeUint16 = (file, data) => {
     file.write(new Buffer(new Uint16Array([data])));
 };
@@ -140,6 +144,7 @@ const writeSvfMap = (file, map) => {
 module.exports = {
     writeData,
     writeString,
+    writeUint8,
     writeUint16,
     writeUint24,
     writeSizeAndFlags,

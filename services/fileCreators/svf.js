@@ -34,9 +34,10 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
 
 
     /*write headers*/
-    File.writeString(Buffer.from("ftyp")); //write file type header -- no real reason to write this... still
-    File.writeString(Buffer.from("svf1")); //write file type version
-    offset += 8;
+    File.writeString(svfFile, Buffer.from("ftyp")); //write file type header -- no real reason to write this... still
+    File.writeString(svfFile, Buffer.from("svf0")); //write svf main file type version
+    File.writeUint8(svfFile, 1); //write svf file sub-version type
+    offset += 9;
 
     /*write headers sizes*/ //making this so the server can skip them and go straight to parsing
     File.writeUint24(svfFile, 8 + mapsSize);
@@ -50,7 +51,7 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     offset += mapsSize;
 
 
-
+    svfFile.end();
     return {
         sampleMap: []
     };
