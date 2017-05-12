@@ -91,7 +91,16 @@ const writeSvfMap = (file, map) => {
     });
 };
 
+const assert = (condition, message) => {
+    if (!condition) {
+        throw new Error(message);
+    }
+    return true;
+};
+
+
 module.exports = {
+    assert,
     writeData,
     writeString,
     writeUint8,
