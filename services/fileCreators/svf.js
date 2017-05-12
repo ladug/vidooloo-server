@@ -8,7 +8,7 @@
  offset: fileOffset,                                [Uint32] -> up to 4,294,967,295 ~ 4Gb - location of the sample in pvf file
  sample: sample,                                    [Uint24] -> up to 16,777,215 - our vid was ~2 mins and had 3195/5673 samples video/audio we can cover around 100 hours, while Uint16 covers 20 mins
  time: audioSamplesTime.timeToSample[sample],       [Uint32] -> up to 4,294,967,295 - don't see a reason to skimp here, it hits over 1 Mil for a short film
- duration: audioSamplesTime.sampleToLength[sample]  [Uint16] -> up to 65,535 - max duration for 24fps is about 4000
+ ** REMOVED ** duration: audioSamplesTime.sampleToLength[sample]  [Uint16] -> up to 65,535 - max duration for 24fps is about 4000
 
 
  extraction sample =>
@@ -29,8 +29,8 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
         svfFile = fs.createWriteStream(filename),
         avc = video.avc,
         mp4a = audio.mp4a,
-        videoMapSize = videoMap.length * 13,
-        audioMapSize = audioMap.length * 13,
+        videoMapSize = videoMap.length * 11,
+        audioMapSize = audioMap.length * 11,
         mapsSize = 2 + videoMapSize + 2 + audioMapSize; //2 is the size of the header ( Uint16 )
     let offset = 0; // 8 is the size of 'ftyp' and 'svf1'
 

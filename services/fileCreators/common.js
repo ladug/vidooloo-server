@@ -88,7 +88,6 @@ const writeSvfMap = (file, map) => {
         writeUint32(file, offset); //4 bytes
         writeUint24(file, sample); //3 bytes
         writeUint32(file, time); //4 bytes
-        writeUint16(file, duration); //2 bytes
     });
 };
 
