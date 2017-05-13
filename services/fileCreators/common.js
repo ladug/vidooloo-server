@@ -24,7 +24,7 @@ const writeUint16 = (file, data) => {
 };
 
 const writeUint24 = (file, data) => {
-    file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 3)));
+    file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 3).reverse()));
 };
 
 const writeUint32 = (file, data) => {
