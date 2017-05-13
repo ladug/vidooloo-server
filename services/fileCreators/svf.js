@@ -49,7 +49,14 @@ const extractAvcData = avc => {
         spsSize: avc.sps.byteLength,
     };
 };
-//TODO:IMPORTANT update writing so it returns the written bytes.
+
+const writeSvfMap = (file, map) => {
+    map.forEach(({offset, sample, time}) => {
+        File.writeUint32(file, offset); //4 bytes
+        File.writeUint24(file, sample); //3 bytes
+        File.writeUint32(file, time);   //4 bytes
+    });
+};
 /* Create SVF File */
 const create = (mp4, extractions, audioMap, videoMap, filename) => {
     const video = mp4.tracks[1],

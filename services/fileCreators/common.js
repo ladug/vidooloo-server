@@ -49,7 +49,7 @@ const writeSizeAndFlags = (file, size, isVideo, isKey) => { //total size 3 bytes
 };
 
 const generateSkipFactor = sampleSize => {
-    const min = sampleSize < 16 ? sampleSize : 16,
+    const min = sampleSize < 16 ? sampleSize : 16, //if size is under 16, us the size as minimum
         max = sampleSize > 256 ? 256 : sampleSize;
     return parseInt(Math.random() * (max - min)) + min; //Default 16-255
 };
@@ -90,14 +90,6 @@ const getSplitSample = (data, size, skipFactor) => {
         });
 };
 
-const writeSvfMap = (file, map) => {
-    map.forEach((offset, sample, time, duration) => {
-        writeUint32(file, offset); //4 bytes
-        writeUint24(file, sample); //3 bytes
-        writeUint32(file, time); //4 bytes
-    });
-};
-
 const assert = (condition, message) => {
     if (!condition) {
         throw new Error(message);
@@ -116,6 +108,5 @@ module.exports = {
     writeSizeAndFlags,
     generateSkipFactor,
     getSplitChunkSizes,
-    getSplitSample,
-    writeSvfMap
+    getSplitSample
 };
