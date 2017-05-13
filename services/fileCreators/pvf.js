@@ -6,6 +6,7 @@ const File = require('./common'),
 /* Create PVF File */
 const create = (digest, filename, fileId) => {
     const {sortedSamples, videoSamplesTime, audioSamplesTime, videoTimeScale, audioTimeScale} = digest,
+        start = (new Date()).getTime(),
         pvfFile = fs.createWriteStream(filename),
         pvfExtractions = [],
         pvfVideoMap = [],
@@ -94,13 +95,15 @@ const create = (digest, filename, fileId) => {
         isPreviousVideo = isVideo;
     });
     pvfFile.end();
+    File.assert(pvfVideoMap.length === pvfAudioMap.length, "Bad map extraction!");
+
     console.log("=======================================");
     console.log(filename, " => ", fileOffset);
     console.log("Original Size => ", originalFramesSize);
     console.log("Written Size => ", pvfWriteSize);
     console.log("Extracted Size => ", svfExtractionSize, "( " + pvfExtractions.length + " samples )");
+    console.info("Execution complete in " + ((new Date()).getTime() - start) + " ms");
     console.log("=======================================");
-    File.assert(pvfVideoMap.length === pvfAudioMap.length, "Bad map extraction!");
 
     return {
         extractions: pvfExtractions,

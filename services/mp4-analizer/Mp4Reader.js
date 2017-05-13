@@ -40,10 +40,15 @@ class MP4Reader {
         this.stream = new BytesStream(stream);
         this.tracks = {};
         this.file = {};
+        this.logBoxTypes = false;
     }
 
-    read() {
-        return this.readBoxes(this.stream, this.file);
+    read(logBoxTypes) {
+        this.logBoxTypes = !!logBoxTypes;
+        const start = (new Date()).getTime();
+        this.readBoxes(this.stream, this.file);
+        const end = (new Date()).getTime();
+        console.info("Read complete in " + (end - start) + " ms");
     }
 
     readBoxes(stream, parent) {
@@ -333,7 +338,7 @@ class MP4Reader {
         //box name is not nessesary for anything really
         box.name = boxTypeName[box.type] || box.type;
 
-        console.log("Reading [" + box.type + "]", JSON.stringify(box));
+        this.logBoxTypes && console.log("Reading [" + box.type + "]", JSON.stringify(box));
         //TODO: fix this god damn switch, its too damn high!
         switch (box.type) {
             case 'ftyp':

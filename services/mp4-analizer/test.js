@@ -27,11 +27,12 @@ const fs = require('fs'),
 
 
 const writeDataToFile = (mp4, pvfFileName, svfFileName) => {
-    const digest = mp4.readSortSamples(),
+    const start = (new Date()).getTime(),
+        digest = mp4.readSortSamples(),
         pvfId = svfDataBase.generatePvfId(),
         {extractions, audioMap, videoMap} = pvf.create(digest, pvfFileName, pvfId),
         isComplete = svf.create(mp4, extractions, audioMap, videoMap, svfFileName);
-
+    console.info("File split complete in " + ((new Date()).getTime() - start) + " ms");
     return !!isComplete;
 };
 module.exports = () => {

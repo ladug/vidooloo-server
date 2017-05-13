@@ -103,7 +103,8 @@ const writeExtractions = (file, extractions) => {
 
 /* Create SVF File */
 const create = (mp4, extractions, audioMap, videoMap, filename) => {
-    const video = mp4.tracks[1],
+    const start = (new Date()).getTime(),
+        video = mp4.tracks[1],
         audio = mp4.tracks[2],
         svfFile = fs.createWriteStream(filename),
         avc = extractAvcData(video.avc),
@@ -181,6 +182,7 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     console.log("Client Header Size =>", svfHeaderSize);
     console.log("Full Header Size =>", offset);
     console.log("Extractions Size =>", extractionsSize);
+    console.info("Execution complete in " + ((new Date()).getTime() - start) + " ms");
     console.log("=======================================");
     return {
         sampleMap: []
