@@ -13,7 +13,7 @@ const writeString = (file, string) => {
 
 const writeData = (file, data) => {
     file.write(
-        new Buffer(data.buffer)
+        new Buffer(data)
     );
 };
 
@@ -49,7 +49,7 @@ const writeSizeAndFlags = (file, size, isVideo, isKey) => { //total size 3 bytes
 };
 
 const generateSkipFactor = sampleSize => {
-    const min = sampleSize < 16 ? sampleSize : 16,
+    const min = sampleSize < 16 ? sampleSize : 16, //if size is under 16, us the size as minimum
         max = sampleSize > 256 ? 256 : sampleSize;
     return parseInt(Math.random() * (max - min)) + min; //Default 16-255
 };
@@ -61,15 +61,15 @@ const getSplitChunkSizes = (size, skipFactor) => {
      "000100010001000100010001000100010".replace(/1/g,"").length -> remove every 4th byte -> 25
      "000100010001000100010001000100010".replace(/0/g,"").length -> count every 4th byte -> 8
      */
-    const svfChunkLength = (size - (size % skipFactor)) / skipFactor;
+    const svfChunkSize = (size - (size % skipFactor)) / skipFactor;
     return {
-        svfChunkLength: svfChunkLength,
-        pvfChunkLength: size - svfChunkLength
+        svfChunkSize: svfChunkSize,
+        pvfChunkSize: size - svfChunkSize
     }
 };
-
+//TODO:IMPORTANT optimization needed
 const getSplitSample = (data, size, skipFactor) => {
-    const {svfChunkLength, pvfChunkLength}=getSplitChunkSizes(size, skipFactor)
+    const {svfChunkSize, pvfChunkSize}=getSplitChunkSizes(size, skipFactor)
     return data.reduce(
         (res, byte, byteIndex) => {
             if (byteIndex === skipFactor) {
@@ -83,19 +83,11 @@ const getSplitSample = (data, size, skipFactor) => {
         }, {
             pvfIndex: 0,
             svfIndex: 0,
-            pvfChunk: new Uint8Array(pvfChunkLength),
-            pvfChunkLength: pvfChunkLength,
-            svfChunk: new Uint8Array(svfChunkLength),
-            svfChunkLength: svfChunkLength
+            pvfChunk: new Uint8Array(pvfChunkSize),
+            pvfChunkSize: pvfChunkSize,
+            svfChunk: new Uint8Array(svfChunkSize),
+            svfChunkSize: svfChunkSize
         });
-};
-
-const writeSvfMap = (file, map) => {
-    map.forEach((offset, sample, time, duration) => {
-        writeUint32(file, offset); //4 bytes
-        writeUint24(file, sample); //3 bytes
-        writeUint32(file, time); //4 bytes
-    });
 };
 
 const assert = (condition, message) => {
@@ -116,6 +108,5 @@ module.exports = {
     writeSizeAndFlags,
     generateSkipFactor,
     getSplitChunkSizes,
-    getSplitSample,
-    writeSvfMap
+    getSplitSample
 };

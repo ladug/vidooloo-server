@@ -13,7 +13,7 @@ const convertHeadersForComparison = (mp4) => {
     },
     createBinaryString = (nMask) => {
         // nMask must be between -2147483648 and 2147483647
-        for (var nFlag = 0, nShifted = nMask, sMask = ''; nFlag < 32;
+        for (let nFlag = 0, nShifted = nMask, sMask = ''; nFlag < 32;
              nFlag++, sMask += String(nShifted >>> 31), nShifted <<= 1);
         return sMask.slice(-24);
     };
@@ -27,11 +27,12 @@ const fs = require('fs'),
 
 
 const writeDataToFile = (mp4, pvfFileName, svfFileName) => {
-    const digest = mp4.readSortSamples(),
+    const start = (new Date()).getTime(),
+        digest = mp4.readSortSamples(),
         pvfId = svfDataBase.generatePvfId(),
         {extractions, audioMap, videoMap} = pvf.create(digest, pvfFileName, pvfId),
         isComplete = svf.create(mp4, extractions, audioMap, videoMap, svfFileName);
-
+    console.info("File split complete in " + ((new Date()).getTime() - start) + " ms");
     return !!isComplete;
 };
 module.exports = () => {

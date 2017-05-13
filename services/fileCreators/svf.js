@@ -7,15 +7,18 @@
 
  offset: fileOffset,                                [Uint32] -> up to 4,294,967,295 ~ 4Gb - location of the sample in pvf file
  sample: sample,                                    [Uint24] -> up to 16,777,215 - our vid was ~2 mins and had 3195/5673 samples video/audio we can cover around 100 hours, while Uint16 covers 20 mins
- time: audioSamplesTime.timeToSample[sample],       [Uint32] -> up to 4,294,967,295 - don't see a reason to skimp here, it hits over 1 Mil for a short film
- ** REMOVED ** duration: audioSamplesTime.sampleToLength[sample]  [Uint16] -> up to 65,535 - max duration for 24fps is about 4000
+ time: audioSamplesTime.sampleToTime[sample],       [Uint32] -> up to 4,294,967,295 - don't see a reason to skimp here, it hits over 1 Mil for a short film
+ /== extra data used in other map tables ==/
+ isVideo: true,
+ svfChunkSize: svfChunkSize,
+ timeInSeconds: videoSamplesTime.sampleToTime[sample] / videoTimeScale
 
 
  extraction sample =>
 
  skipFactor: skipFactor,    [tiny int](16-255)  [Uint8]  -> up to 255, we can change in future versions
  chunk: svfChunk,           [Uint8Array]        [~]      -> unknown size here
- size: svfChunkLength       [int]               [Uint8] -> Pvf chunk reach Uint20 (1Mb) svf chunk is at least 16 times smaller (64Bytes)
+ chunkSize: svfChunkSize    [int]               [Uint16] -> Pvf chunk reach Uint20 (1Mb) svf chunk is at least 16 times smaller (max is 65535)
 
  NOTE* thought the SVF chunk size is Uint8 we will have to resort to Uint20 when sending to client
  */
@@ -49,10 +52,59 @@ const extractAvcData = avc => {
         spsSize: avc.sps.byteLength,
     };
 };
-//TODO:IMPORTANT update writing so it returns the written bytes.
+
+const writeSvfMap = (file, map) => {
+    map.forEach(({offset, sample, time}) => {
+        File.writeUint32(file, offset); //4 bytes
+        File.writeUint24(file, sample); //3 bytes
+        File.writeUint32(file, time);   //4 bytes
+    });
+};
+
+const writePvfToSvfMap = (file, map) => {
+    map.forEach(({isVideo, pvfOffset, svfOffset, time}) => {
+        File.writeUint32(file, pvfOffset);          //4 bytes
+        File.writeUint32(file, svfOffset);          //4 bytes
+        File.writeUint8(file, isVideo ? 1 : 0);     //1 byte
+        File.writeUint32(file, time);          //4 bytes
+    });
+};
+
+const createPvfToSvfMap = (fileOffset, audioMap, videoMap) => {
+    return videoMap.concat(audioMap).sort((a, b) => {
+        if (a.offset < b.offset) {
+            return -1;
+        }
+        if (a.offset > b.offset) {
+            return 1;
+        }
+        return 0;
+    }).map(unit => {
+        const offsetMapUnit = {
+            pvfOffset: unit.offset, //Unit32 (4) - no idea what size PVF will reach, safeguard 4gig
+            svfOffset: fileOffset,  //Uint32 (4) - no idea what size SVF will reach, safeguard 4gig
+            isVideo: unit.isVideo,  //Uint8  (1) - is video flag
+            time: unit.time,        //Uint32 (4) - time since the beginning of the video
+        };
+        //add size of the svf frame
+        //Uint16 ( svf data size ) + Uint8 ( skip factor ) +  SVF Data Size
+        fileOffset += 2 + 1 + unit.svfChunkSize;
+        return offsetMapUnit;
+    });
+};
+
+const writeExtractions = (file, extractions) => {
+    extractions.forEach(extraction => {
+        File.writeUint16(file, extraction.chunkSize);
+        File.writeUint8(file, extraction.skipFactor);
+        File.writeData(file, extraction.chunk);
+    });
+};
+
 /* Create SVF File */
 const create = (mp4, extractions, audioMap, videoMap, filename) => {
-    const video = mp4.tracks[1],
+    const start = (new Date()).getTime(),
+        video = mp4.tracks[1],
         audio = mp4.tracks[2],
         svfFile = fs.createWriteStream(filename),
         avc = extractAvcData(video.avc),
@@ -60,9 +112,15 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
         videoMapSize = videoMap.length * 11,
         audioMapSize = audioMap.length * 11,
         mapsSize = 2 + videoMapSize + 2 + audioMapSize,//2 is the size of the header ( Uint16 )
-        videoConfigSize = 2 + avc.spsSize + 2 + avc.ppsSize,
-        audioConfigSize = 4 + 3 + 2 + mp4a.adcdSize;
+        videoConfigSize = 2 + 2 + 2 + avc.spsSize + 2 + avc.ppsSize,
+        audioConfigSize = 4 + 3 + 2 + mp4a.adcdSize,
+        offsetToOffsetMapSize = (audioMap.length + videoMap.length) * 13,
+        svfHeaderSize = 9 + 3 + mapsSize + videoConfigSize + audioConfigSize;
     let offset = 0;
+
+    /* Client related Headers Size*/
+    File.writeUint24(svfFile, svfHeaderSize);
+    offset += 3; //header tables and config size
 
     /*write headers*/
     File.writeString(svfFile, "ftyp"); //write file type header -- no real reason to write this... still
@@ -72,17 +130,20 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
 
     /*write headers sizes*/ //making this so the server can skip them and go straight to parsing
     File.writeUint24(svfFile, mapsSize);
-    offset += 3;
+    offset += 3; //skip maps size
 
     /*write skip maps*/
     File.writeUint16(svfFile, videoMapSize); //write video map size
-    File.writeSvfMap(svfFile, videoMap); //write Video Map
+    writeSvfMap(svfFile, videoMap); //write Video Map
     File.writeUint16(svfFile, audioMapSize); //write audio map size
-    File.writeSvfMap(svfFile, audioMap); //write Audio Map
-    offset += mapsSize;
+    writeSvfMap(svfFile, audioMap); //write Audio Map
+    offset += mapsSize; //skip maps data length
 
     /*Video Configurations*/
-    File.writeUint16(svfFile, avc.spsSize); //write audio map size
+    File.writeUint16(svfFile, video.width);
+    File.writeUint16(svfFile, video.height);
+
+    File.writeUint16(svfFile, avc.spsSize);
     File.writeData(svfFile, avc.sps);
     File.writeUint16(svfFile, avc.ppsSize);
     File.writeData(svfFile, avc.pps);
@@ -98,7 +159,31 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     File.writeData(svfFile, mp4a.adcd);
     offset += audioConfigSize;
 
+    /*================================================================================*/
+    /*============ All above are sent to client without interpretation ===============*/
+    /*================================================================================*/
+
+    /*Write Pvf Offset to Svf Offset table*/
+    File.writeUint24(svfFile, offsetToOffsetMapSize);
+    offset += 3; //Offset To Offset map size
+
+    /* write map used for skipping on server side */
+    writePvfToSvfMap(svfFile, createPvfToSvfMap(offset + 3 + offsetToOffsetMapSize, audioMap, videoMap));
+    offset += offsetToOffsetMapSize; //OffsetToOffset table data length
+
+    /*Finally write the extractions*/
+    writeExtractions(svfFile, extractions);
     svfFile.end();
+
+    const extractionsSize = extractions.reduce((total, extraction) => (total + 2 + 1 + extraction.chunkSize ), 0);
+    const estimatedFileSize = offset + extractions.reduce((total, extraction) => (total + 2 + 1 + extraction.chunkSize ), 0);
+    console.log("=======================================");
+    console.log(filename + " => " + estimatedFileSize);
+    console.log("Client Header Size =>", svfHeaderSize);
+    console.log("Full Header Size =>", offset);
+    console.log("Extractions Size =>", extractionsSize);
+    console.info("Execution complete in " + ((new Date()).getTime() - start) + " ms");
+    console.log("=======================================");
     return {
         sampleMap: []
     };
