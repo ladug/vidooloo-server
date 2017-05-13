@@ -175,11 +175,9 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     svfFile.end();
 
 
-    const estimatedFileSize = offset + extractions.reduce((total, extraction) => {
-            total += 2 + 1 + extraction.chunkSize
-        }, 0);
-
+    const estimatedFileSize = offset + extractions.reduce((total, extraction) => (total + 2 + 1 + extraction.chunkSize ), 0);
     console.log(filename + " => " + estimatedFileSize);
+
     return {
         sampleMap: []
     };
