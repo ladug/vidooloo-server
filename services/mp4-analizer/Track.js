@@ -74,7 +74,7 @@ class Track {
     } ;
 
     getTotalTimeInSeconds() {
-        return (this.timeToSeconds(this.duration / this.timeScale))
+        return this.timeToSeconds(this.duration);
     }
 
     chunkToOffset(chunk) {
@@ -152,15 +152,15 @@ class Track {
 
     digestSamplesTime() { // get time map of time/sample, sample/time and sample/length
         const table = this.sttsTable;
-        const test = table.reduce((res, item) => {
+        return table.reduce((res, item) => {
             for (let i = 0; i < item.count; i++) {
                 const sample = res.length,
                     total = res.total;
-                res.sampleToTime[sample] = total + item.delta;
+                res.sampleToTime[sample] = total; //sample offset time
                 res.sampleToLength[sample] = item.delta;
                 res.timeToSample[total + item.delta] = sample;
                 res.length++;
-                res.total = total + item.delta;
+                res.total += item.delta;
             }
             return res;
         }, {
@@ -170,7 +170,6 @@ class Track {
             sampleToLength: {},
             timeToSample: {}
         });
-        return test;
     }
 
     digestSampleBytes(sample, isKey) {
@@ -184,27 +183,6 @@ class Track {
             data: bytes.subarray(offset, offset + size),
             size: size
         }
-    }
-
-    digestSampleNALUnits(sample, isKey) {
-        //TODO: Optimize!
-        const nalUnits = [],
-            bytes = this.file.stream.bytes;
-        let offset = this.sampleToOffset(sample),
-            end = offset + this.sampleToSize(sample, 1);
-
-        while (end - offset > 0) {
-            const size = (new BytesStream(bytes.buffer, offset)).readU32();
-            nalUnits.push({
-                isKey: !!isKey,
-                offset: offset,
-                sample: sample,
-                data: bytes.subarray(offset + 4, offset + size + 4),
-                size: size
-            });
-            offset += size + 4;
-        }
-        return nalUnits;
     }
 
     getSampleNALUnits(sample) {

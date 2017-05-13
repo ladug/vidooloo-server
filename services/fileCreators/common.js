@@ -7,39 +7,45 @@
 //Mark Third byte => +2097152
 //Mark Fourth byte => +1048576
 //Max allowed size Per sample/frame => 1 048 575 > 1MB -- we can go lower if there will be a reason
-const writeData = (file, data) => {
-    file.write(new Buffer(data));
-};
-
 const writeString = (file, string) => {
     file.write(Buffer.from(string));
 };
 
+const writeData = (file, data) => {
+    file.write(
+        new Buffer(data.buffer)
+    );
+};
+
 const writeUint8 = (file, data) => {
-    file.write(new Buffer(new Uint8Array([data])));
+    const buffer = Buffer.alloc(1);
+    buffer.writeUInt8(data);
+    file.write(buffer);
 };
 
 const writeUint16 = (file, data) => {
-    file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 2).reverse()));
-  //  file.write(new Buffer(new Uint16Array([data])));//.reverse()
+    const buffer = Buffer.alloc(2);
+    buffer.writeUInt16BE(data);
+    file.write(buffer);
 };
 
 const writeUint24 = (file, data) => {
-    file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 3).reverse()));
+    const buffer = Buffer.alloc(4);
+    buffer.writeUInt32BE(data);
+    file.write(buffer.slice(1, 4));
 };
 
 const writeUint32 = (file, data) => {
-    file.write(new Buffer(new Uint32Array([data]).reverse()));//TODO: not yet testes
+    const buffer = Buffer.alloc(4);
+    buffer.writeInt32BE(data);
+    file.write(buffer);
 };
 
 const writeSizeAndFlags = (file, size, isVideo, isKey) => { //total size 3 bytes
     let byte = size;
-    byte += isVideo ? 8388608 : 0;
-    byte += isKey ? 4194304 : 0;
-
-    // write data to PVF
-    const uint24FlagsAndSize = new Uint8Array((new Uint32Array([byte])).buffer).slice(0, 3);
-    file.write(new Buffer(uint24FlagsAndSize));
+    byte = byte | (isVideo ? 8388608 : 0);
+    byte = byte | (isKey ? 4194304 : 0);
+    writeUint24(file, byte);
 };
 
 const generateSkipFactor = sampleSize => {
@@ -89,11 +95,18 @@ const writeSvfMap = (file, map) => {
         writeUint32(file, offset); //4 bytes
         writeUint24(file, sample); //3 bytes
         writeUint32(file, time); //4 bytes
-        writeUint16(file, duration); //2 bytes
     });
 };
 
+const assert = (condition, message) => {
+    if (!condition) {
+        throw new Error(message);
+    }
+    return true;
+};
+
 module.exports = {
+    assert,
     writeData,
     writeString,
     writeUint8,

@@ -74,13 +74,13 @@ class BytesStream {
                 : () => (names.reduce((res, name) => {
                     res[name] = this.readU32();
                     return res;
-                },{}))
+                }, {}))
         );
     }
 
     readU8() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end, BUFFER_READ_LENGTH_ERROR, 85)) {
+        if (noBreakingError(pos > end, BUFFER_READ_LENGTH_ERROR, 85)) {
             return null;
         }
         updatePosBy(1);
@@ -89,7 +89,7 @@ class BytesStream {
 
     readU16() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end - 1, BUFFER_READ_LENGTH_ERROR, 94)) {
+        if (noBreakingError(pos > end - 1, BUFFER_READ_LENGTH_ERROR, 94)) {
             return null;
         }
         updatePosBy(2);
@@ -98,7 +98,7 @@ class BytesStream {
 
     readU24() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end - 3, BUFFER_READ_LENGTH_ERROR, 103)) {
+        if (noBreakingError(pos > end - 3, BUFFER_READ_LENGTH_ERROR, 103)) {
             return null;
         }
         updatePosBy(3);
@@ -116,7 +116,7 @@ class BytesStream {
 
     peek32() { //same as read but don't advance the read position
         const {pos, end, bytes}=this;
-        if (pos >= end - 4) {
+        if (noBreakingError(pos > end - 3, BUFFER_READ_LENGTH_ERROR, 119)) {
             return null;
         }
         return bytes[pos + 0] << 24 | bytes[pos + 1] << 16 | bytes[pos + 2] << 8 | bytes[pos + 3];
@@ -148,7 +148,7 @@ class BytesStream {
 
     read4CC() {
         const {pos, end, bytes, updatePosBy}=this;
-        if (noBreakingError(pos >= end - 4, BUFFER_READ_LENGTH_ERROR, 153)) {
+        if (noBreakingError(pos > end - 4, BUFFER_READ_LENGTH_ERROR, 153)) {
             return null;
         }
         let res = "";

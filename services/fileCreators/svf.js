@@ -8,7 +8,7 @@
  offset: fileOffset,                                [Uint32] -> up to 4,294,967,295 ~ 4Gb - location of the sample in pvf file
  sample: sample,                                    [Uint24] -> up to 16,777,215 - our vid was ~2 mins and had 3195/5673 samples video/audio we can cover around 100 hours, while Uint16 covers 20 mins
  time: audioSamplesTime.timeToSample[sample],       [Uint32] -> up to 4,294,967,295 - don't see a reason to skimp here, it hits over 1 Mil for a short film
- duration: audioSamplesTime.sampleToLength[sample]  [Uint16] -> up to 65,535 - max duration for 24fps is about 4000
+ ** REMOVED ** duration: audioSamplesTime.sampleToLength[sample]  [Uint16] -> up to 65,535 - max duration for 24fps is about 4000
 
 
  extraction sample =>
@@ -22,36 +22,81 @@
 
 const File = require('./common'),
     fs = require('fs');
+
+const extractMp4aData = mp4a => {
+    return {
+        channels: mp4a.channelCount,
+        compressionId: mp4a.compressionId, //not sure we need this
+        adcd: mp4a.esds.adcd,
+        adcdSize: mp4a.esds.adcd.byteLength,
+        packetSize: mp4a.packetSize,
+        sampleRate: mp4a.sampleRate,
+        sampleSize: mp4a.sampleSize,
+        version: mp4a.version
+    };
+};
+
+const extractAvcData = avc => {
+    File.assert(avc.configurationVersion === 1, "Cant handle other levels yet!")
+    return {
+        version: avc.configurationVersion,
+        level: avc.avcLevelIndication,
+        profile: avc.avcProfileIndication,
+        compatibility: avc.profileCompatibility,
+        pps: avc.pps,
+        ppsSize: avc.pps.byteLength,
+        sps: avc.sps,
+        spsSize: avc.sps.byteLength,
+    };
+};
+//TODO:IMPORTANT update writing so it returns the written bytes.
 /* Create SVF File */
 const create = (mp4, extractions, audioMap, videoMap, filename) => {
     const video = mp4.tracks[1],
         audio = mp4.tracks[2],
         svfFile = fs.createWriteStream(filename),
-        avc = video.avc,
-        mp4a = audio.mp4a,
-        videoMapSize = videoMap.length * 13,
-        audioMapSize = audioMap.length * 13,
-        mapsSize = 2 + videoMapSize + 2 + audioMapSize; //2 is the size of the header ( Uint16 )
-    let offset = 0; // 8 is the size of 'ftyp' and 'svf1'
+        avc = extractAvcData(video.avc),
+        mp4a = extractMp4aData(audio.mp4a),
+        videoMapSize = videoMap.length * 11,
+        audioMapSize = audioMap.length * 11,
+        mapsSize = 2 + videoMapSize + 2 + audioMapSize,//2 is the size of the header ( Uint16 )
+        videoConfigSize = 2 + avc.spsSize + 2 + avc.ppsSize,
+        audioConfigSize = 4 + 3 + 2 + mp4a.adcdSize;
+    let offset = 0;
 
     /*write headers*/
     File.writeString(svfFile, "ftyp"); //write file type header -- no real reason to write this... still
     File.writeString(svfFile, "svf0"); //write svf main file type version
     File.writeUint8(svfFile, 1); //write svf file sub-version type
-    offset += 9;
+    offset += 9; // 8 is the size of 'ftyp' and 'svf1' + 1 byte subversion
 
     /*write headers sizes*/ //making this so the server can skip them and go straight to parsing
-    File.writeUint24(svfFile, 8 + mapsSize);
-    console.info('mapSize::' + mapsSize);
+    File.writeUint24(svfFile, mapsSize);
     offset += 3;
 
-    /*write maps*/
+    /*write skip maps*/
     File.writeUint16(svfFile, videoMapSize); //write video map size
     File.writeSvfMap(svfFile, videoMap); //write Video Map
     File.writeUint16(svfFile, audioMapSize); //write audio map size
     File.writeSvfMap(svfFile, audioMap); //write Audio Map
     offset += mapsSize;
 
+    /*Video Configurations*/
+    File.writeUint16(svfFile, avc.spsSize); //write audio map size
+    File.writeData(svfFile, avc.sps);
+    File.writeUint16(svfFile, avc.ppsSize);
+    File.writeData(svfFile, avc.pps);
+    offset += videoConfigSize;
+
+    /* Audio Configurations */
+    File.writeUint8(svfFile, mp4a.channels);         //1 byte
+    File.writeUint8(svfFile, mp4a.compressionId);    //1 byte
+    File.writeUint8(svfFile, mp4a.packetSize);       //1 byte
+    File.writeUint8(svfFile, mp4a.sampleSize);       //1 byte total:4 bytes
+    File.writeUint24(svfFile, mp4a.sampleRate);      //3 bytes
+    File.writeUint16(svfFile, mp4a.adcdSize);      //2 bytes
+    File.writeData(svfFile, mp4a.adcd);
+    offset += audioConfigSize;
 
     svfFile.end();
     return {
