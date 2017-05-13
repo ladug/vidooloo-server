@@ -23,15 +23,6 @@
 const File = require('./common'),
     fs = require('fs');
 
-
-sampleRate: 44100
-bitsPerChannel: 0
-channelsPerFrame: 2
-bytesPerPacket: 0
-framesPerPacket: 1024
-duration: 38659
-data: 'd21b23ee'
-
 const extractMp4aData = mp4a => {
     return {
         channels: mp4a.channelCount,
