@@ -333,7 +333,7 @@ class MP4Reader {
         //box name is not nessesary for anything really
         box.name = boxTypeName[box.type] || box.type;
 
-        console.log("Reading [" + box.type + "]", JSON.stringify(box))
+        console.log("Reading [" + box.type + "]", JSON.stringify(box));
         //TODO: fix this god damn switch, its too damn high!
         switch (box.type) {
             case 'ftyp':

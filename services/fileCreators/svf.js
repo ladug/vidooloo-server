@@ -174,10 +174,14 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     writeExtractions(svfFile, extractions);
     svfFile.end();
 
-
+    const extractionsSize = extractions.reduce((total, extraction) => (total + 2 + 1 + extraction.chunkSize ), 0);
     const estimatedFileSize = offset + extractions.reduce((total, extraction) => (total + 2 + 1 + extraction.chunkSize ), 0);
+    console.log("=======================================");
     console.log(filename + " => " + estimatedFileSize);
-
+    console.log("Client Header Size =>", svfHeaderSize);
+    console.log("Full Header Size =>", offset);
+    console.log("Extractions Size =>", extractionsSize);
+    console.log("=======================================");
     return {
         sampleMap: []
     };

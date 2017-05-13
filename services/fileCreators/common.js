@@ -13,7 +13,7 @@ const writeString = (file, string) => {
 
 const writeData = (file, data) => {
     file.write(
-        new Buffer(data.buffer)
+        new Buffer(data)
     );
 };
 

@@ -14,7 +14,10 @@ const create = (digest, filename, fileId) => {
         isFirstVideo = sortedSamples[0].isVideo,
         isPreviousVideo = !isFirstVideo,
         isAudioMapPending = false,
-        storedAudioSampleInfo = null;
+        storedAudioSampleInfo = null,
+        originalFramesSize = 0,
+        svfExtractionSize = 0,
+        pvfWriteSize = 0;
 
     /* write pvf file type and id */
     File.writeString(pvfFile, "ftyp"); //write file type header -- no real reason to write this... still
@@ -26,6 +29,9 @@ const create = (digest, filename, fileId) => {
             {pvfChunk, svfChunk, pvfChunkSize, svfChunkSize} = File.getSplitSample(data, size, skipFactor),
             sampleDuration = isVideo ? videoSamplesTime.sampleToLength[sample] : audioSamplesTime.sampleToLength[sample];
 
+        originalFramesSize += size;
+        svfExtractionSize += svfChunkSize;
+        pvfWriteSize += pvfChunkSize;
         pvfExtractions.push({
             isVideo: isVideo,
             skipFactor: skipFactor,
@@ -88,6 +94,12 @@ const create = (digest, filename, fileId) => {
         isPreviousVideo = isVideo;
     });
     pvfFile.end();
+    console.log("=======================================");
+    console.log(filename, " => ", fileOffset);
+    console.log("Original Size => ", originalFramesSize);
+    console.log("Written Size => ", pvfWriteSize);
+    console.log("Extracted Size => ", svfExtractionSize, "( " + pvfExtractions.length + " samples )");
+    console.log("=======================================");
     File.assert(pvfVideoMap.length === pvfAudioMap.length, "Bad map extraction!");
 
     return {
