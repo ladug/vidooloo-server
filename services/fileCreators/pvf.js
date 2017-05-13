@@ -24,9 +24,12 @@ const create = (digest, filename, fileId) => {
     sortedSamples.forEach(({isVideo, sample, isKey, size, data}) => {
         const skipFactor = File.generateSkipFactor(size),
             {pvfChunk, svfChunk, pvfChunkLength, svfChunkLength} = File.getSplitSample(data, size, skipFactor),
-            sampleDuration = isVideo ? videoSamplesTime.sampleToLength[sample] : audioSamplesTime.sampleToLength[sample]
+            sampleDuration = isVideo ? videoSamplesTime.sampleToLength[sample] : audioSamplesTime.sampleToLength[sample];
 
         pvfExtractions.push({
+            isVideo: isVideo,
+            sample: sample,
+            duration: sampleDuration,
             skipFactor: skipFactor,
             chunk: svfChunk,
             size: svfChunkLength
