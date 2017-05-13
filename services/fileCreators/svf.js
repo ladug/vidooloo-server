@@ -7,15 +7,18 @@
 
  offset: fileOffset,                                [Uint32] -> up to 4,294,967,295 ~ 4Gb - location of the sample in pvf file
  sample: sample,                                    [Uint24] -> up to 16,777,215 - our vid was ~2 mins and had 3195/5673 samples video/audio we can cover around 100 hours, while Uint16 covers 20 mins
- time: audioSamplesTime.timeToSample[sample],       [Uint32] -> up to 4,294,967,295 - don't see a reason to skimp here, it hits over 1 Mil for a short film
- ** REMOVED ** duration: audioSamplesTime.sampleToLength[sample]  [Uint16] -> up to 65,535 - max duration for 24fps is about 4000
+ time: audioSamplesTime.sampleToTime[sample],       [Uint32] -> up to 4,294,967,295 - don't see a reason to skimp here, it hits over 1 Mil for a short film
+ /== extra data used in other map tables ==/
+ isVideo: true,
+ svfChunkSize: svfChunkSize,
+ timeInSeconds: videoSamplesTime.sampleToTime[sample] / videoTimeScale
 
 
  extraction sample =>
 
  skipFactor: skipFactor,    [tiny int](16-255)  [Uint8]  -> up to 255, we can change in future versions
  chunk: svfChunk,           [Uint8Array]        [~]      -> unknown size here
- size: svfChunkLength       [int]               [Uint8] -> Pvf chunk reach Uint20 (1Mb) svf chunk is at least 16 times smaller (64Bytes)
+ chunkSize: svfChunkSize    [int]               [Uint16] -> Pvf chunk reach Uint20 (1Mb) svf chunk is at least 16 times smaller (max is 65535)
 
  NOTE* thought the SVF chunk size is Uint8 we will have to resort to Uint20 when sending to client
  */

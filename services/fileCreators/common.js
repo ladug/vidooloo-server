@@ -61,15 +61,15 @@ const getSplitChunkSizes = (size, skipFactor) => {
      "000100010001000100010001000100010".replace(/1/g,"").length -> remove every 4th byte -> 25
      "000100010001000100010001000100010".replace(/0/g,"").length -> count every 4th byte -> 8
      */
-    const svfChunkLength = (size - (size % skipFactor)) / skipFactor;
+    const svfChunkSize = (size - (size % skipFactor)) / skipFactor;
     return {
-        svfChunkLength: svfChunkLength,
-        pvfChunkLength: size - svfChunkLength
+        svfChunkSize: svfChunkSize,
+        pvfChunkSize: size - svfChunkSize
     }
 };
 
 const getSplitSample = (data, size, skipFactor) => {
-    const {svfChunkLength, pvfChunkLength}=getSplitChunkSizes(size, skipFactor)
+    const {svfChunkSize, pvfChunkSize}=getSplitChunkSizes(size, skipFactor)
     return data.reduce(
         (res, byte, byteIndex) => {
             if (byteIndex === skipFactor) {
@@ -83,10 +83,10 @@ const getSplitSample = (data, size, skipFactor) => {
         }, {
             pvfIndex: 0,
             svfIndex: 0,
-            pvfChunk: new Uint8Array(pvfChunkLength),
-            pvfChunkLength: pvfChunkLength,
-            svfChunk: new Uint8Array(svfChunkLength),
-            svfChunkLength: svfChunkLength
+            pvfChunk: new Uint8Array(pvfChunkSize),
+            pvfChunkSize: pvfChunkSize,
+            svfChunk: new Uint8Array(svfChunkSize),
+            svfChunkSize: svfChunkSize
         });
 };
 
