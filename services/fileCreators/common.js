@@ -37,8 +37,7 @@ const writeSizeAndFlags = (file, size, isVideo, isKey) => { //total size 3 bytes
     byte += isKey ? 4194304 : 0;
 
     // write data to PVF
-    const uint24FlagsAndSize = new Uint8Array((new Uint32Array([byte])).buffer).slice(0, 3);
-    file.write(new Buffer(uint24FlagsAndSize));
+    writeUint24(file,byte);
 };
 
 const generateSkipFactor = sampleSize => {
