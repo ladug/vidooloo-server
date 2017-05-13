@@ -82,17 +82,20 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
 
     /*write headers sizes*/ //making this so the server can skip them and go straight to parsing
     File.writeUint24(svfFile, mapsSize);
-    offset += 3;
+    offset += 3; //skip maps size
 
     /*write skip maps*/
     File.writeUint16(svfFile, videoMapSize); //write video map size
-    File.writeSvfMap(svfFile, videoMap); //write Video Map
+    writeSvfMap(svfFile, videoMap); //write Video Map
     File.writeUint16(svfFile, audioMapSize); //write audio map size
-    File.writeSvfMap(svfFile, audioMap); //write Audio Map
-    offset += mapsSize;
+    writeSvfMap(svfFile, audioMap); //write Audio Map
+    offset += mapsSize; //skip maps data length
 
     /*Video Configurations*/
-    File.writeUint16(svfFile, avc.spsSize); //write audio map size
+    File.writeUint16(svfFile, video.width);
+    File.writeUint16(svfFile, video.height);
+
+    File.writeUint16(svfFile, avc.spsSize);
     File.writeData(svfFile, avc.sps);
     File.writeUint16(svfFile, avc.ppsSize);
     File.writeData(svfFile, avc.pps);
@@ -109,6 +112,13 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     offset += audioConfigSize;
 
     svfFile.end();
+
+
+    const estimatedFileSize = offset + extractions.reduce((total, extraction) => {
+            total += 2 + 1 + extraction.chunkSize
+        }, 0);
+
+    console.log(filename + " => " + estimatedFileSize);
     return {
         sampleMap: []
     };
