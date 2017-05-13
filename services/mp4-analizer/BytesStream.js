@@ -116,7 +116,7 @@ class BytesStream {
 
     peek32() { //same as read but don't advance the read position
         const {pos, end, bytes}=this;
-        if (noBreakingError(pos > end - 3, BUFFER_READ_LENGTH_ERROR, 119)) {
+        if (pos > end - 3) { //no need for breaking error here, sometimes we peek to see if anything is left
             return null;
         }
         return bytes[pos + 0] << 24 | bytes[pos + 1] << 16 | bytes[pos + 2] << 8 | bytes[pos + 3];

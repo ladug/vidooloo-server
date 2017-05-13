@@ -6,6 +6,7 @@ const File = require('./common'),
 /* Create PVF File */
 const create = (digest, filename, fileId) => {
     const {sortedSamples, videoSamplesTime, audioSamplesTime, videoTimeScale, audioTimeScale} = digest,
+        start = (new Date()).getTime(),
         pvfFile = fs.createWriteStream(filename),
         pvfExtractions = [],
         pvfVideoMap = [],
@@ -14,7 +15,10 @@ const create = (digest, filename, fileId) => {
         isFirstVideo = sortedSamples[0].isVideo,
         isPreviousVideo = !isFirstVideo,
         isAudioMapPending = false,
-        storedAudioSampleInfo = {};
+        storedAudioSampleInfo = null,
+        originalFramesSize = 0,
+        svfExtractionSize = 0,
+        pvfWriteSize = 0;
 
     /* write pvf file type and id */
     File.writeString(pvfFile, "ftyp"); //write file type header -- no real reason to write this... still
@@ -23,24 +27,26 @@ const create = (digest, filename, fileId) => {
 
     sortedSamples.forEach(({isVideo, sample, isKey, size, data}) => {
         const skipFactor = File.generateSkipFactor(size),
-            {pvfChunk, svfChunk, pvfChunkLength, svfChunkLength} = File.getSplitSample(data, size, skipFactor),
+            {pvfChunk, svfChunk, pvfChunkSize, svfChunkSize} = File.getSplitSample(data, size, skipFactor),
             sampleDuration = isVideo ? videoSamplesTime.sampleToLength[sample] : audioSamplesTime.sampleToLength[sample];
 
+        originalFramesSize += size;
+        svfExtractionSize += svfChunkSize;
+        pvfWriteSize += pvfChunkSize;
         pvfExtractions.push({
             isVideo: isVideo,
-            sample: sample,
-            duration: sampleDuration,
             skipFactor: skipFactor,
             chunk: svfChunk,
-            size: svfChunkLength
+            chunkSize: svfChunkSize
         });
-
 
         if (isVideo) {
             if (isKey) {
                 pvfVideoMap.push({
                     offset: fileOffset, //offset from the beginning of the file
                     sample: sample,
+                    isVideo: true,
+                    svfChunkSize: svfChunkSize,
                     time: videoSamplesTime.sampleToTime[sample],
                     timeInSeconds: videoSamplesTime.sampleToTime[sample] / videoTimeScale
                 });
@@ -52,7 +58,14 @@ const create = (digest, filename, fileId) => {
                     const audioTimeInSeconds = audioSamplesTime.sampleToTime[sample] / audioTimeScale,
                         videoTimeInSeconds = pvfVideoMap[pvfVideoMap.length - 1].time / videoTimeScale
                     if (isAudioMapPending && audioTimeInSeconds > videoTimeInSeconds) {
-                        pvfAudioMap.push(storedAudioSampleInfo);
+                        pvfAudioMap.push(storedAudioSampleInfo || {
+                                offset: fileOffset, //offset from the beginning of the file
+                                sample: sample,
+                                isVideo: false,
+                                svfChunkSize: svfChunkSize,
+                                time: audioSamplesTime.sampleToTime[sample],
+                                timeInSeconds: audioSamplesTime.sampleToTime[sample] / audioTimeScale
+                            });
                         isAudioMapPending = false;
                     }
                 } else {
@@ -60,6 +73,8 @@ const create = (digest, filename, fileId) => {
                     storedAudioSampleInfo = {
                         offset: fileOffset, //offset from the beginning of the file
                         sample: sample,
+                        isVideo: false,
+                        svfChunkSize: svfChunkSize,
                         time: audioSamplesTime.sampleToTime[sample],
                         timeInSeconds: audioSamplesTime.sampleToTime[sample] / audioTimeScale
                     }
@@ -75,13 +90,20 @@ const create = (digest, filename, fileId) => {
         fileOffset += 2; // add duration size to the total offset
 
         File.writeData(pvfFile, pvfChunk); //write sample data
-        fileOffset += pvfChunkLength; // add data size to the total offset
+        fileOffset += pvfChunkSize; // add data size to the total offset
 
         isPreviousVideo = isVideo;
     });
     pvfFile.end();
-
     File.assert(pvfVideoMap.length === pvfAudioMap.length, "Bad map extraction!");
+
+    console.log("=======================================");
+    console.log(filename, " => ", fileOffset);
+    console.log("Original Size => ", originalFramesSize);
+    console.log("Written Size => ", pvfWriteSize);
+    console.log("Extracted Size => ", svfExtractionSize, "( " + pvfExtractions.length + " samples )");
+    console.info("Execution complete in " + ((new Date()).getTime() - start) + " ms");
+    console.log("=======================================");
 
     return {
         extractions: pvfExtractions,
