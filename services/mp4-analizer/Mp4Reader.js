@@ -5,7 +5,6 @@ const {assert, noBreakingError, BOX_HEADER_SIZE, FULL_BOX_HEADER_SIZE} = require
     Track = require('./Track'),
     Size = require('./Size'),
     BytesStream = require('./BytesStream');
-
 const boxTypeName = {
     "ftyp": "File Type Box",
     "moov": "Movie Box",
@@ -32,6 +31,7 @@ const boxTypeName = {
     "mdat": "Media Data Box",
     "free": "free",
 };
+
 
 class MP4Reader {
     constructor(stream) {

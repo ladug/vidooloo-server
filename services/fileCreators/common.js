@@ -20,15 +20,16 @@ const writeUint8 = (file, data) => {
 };
 
 const writeUint16 = (file, data) => {
-    file.write(new Buffer(new Uint16Array([data])));
+    file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 2).reverse()));
+  //  file.write(new Buffer(new Uint16Array([data])));//.reverse()
 };
 
 const writeUint24 = (file, data) => {
-    file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 3)));
+    file.write(new Buffer(new Uint8Array((new Uint32Array([data])).buffer).slice(0, 3).reverse()));
 };
 
 const writeUint32 = (file, data) => {
-    file.write(new Buffer(new Uint32Array([data])));
+    file.write(new Buffer(new Uint32Array([data]).reverse()));//TODO: not yet testes
 };
 
 const writeSizeAndFlags = (file, size, isVideo, isKey) => { //total size 3 bytes

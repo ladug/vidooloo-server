@@ -42,6 +42,7 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
 
     /*write headers sizes*/ //making this so the server can skip them and go straight to parsing
     File.writeUint24(svfFile, 8 + mapsSize);
+    console.info('mapSize::' + mapsSize);
     offset += 3;
 
     /*write maps*/
