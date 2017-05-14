@@ -9,5 +9,5 @@ module.exports = () => {
     reader = new svfReader(data);
     reader.read();
 
-    return {success: true, info: reader};
+    return {success: true, data: reader.file};
 };
