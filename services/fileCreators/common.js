@@ -69,25 +69,26 @@ const getSplitChunkSizes = (size, skipFactor) => {
 };
 //TODO:IMPORTANT optimization needed
 const getSplitSample = (data, size, skipFactor) => {
-    const {svfChunkSize, pvfChunkSize}=getSplitChunkSizes(size, skipFactor)
-    return data.reduce(
-        (res, byte, byteIndex) => {
-            if (byteIndex === skipFactor) {
-                res.svfChunk[res.svfIndex] = byte;
-                res.svfIndex++;
-            } else {
-                res.pvfChunk[res.pvfIndex] = byte;
-                res.pvfIndex++;
-            }
-            return res;
-        }, {
-            pvfIndex: 0,
-            svfIndex: 0,
-            pvfChunk: new Uint8Array(pvfChunkSize),
-            pvfChunkSize: pvfChunkSize,
-            svfChunk: new Uint8Array(svfChunkSize),
-            svfChunkSize: svfChunkSize
-        });
+    assert(size !== 0, "Sample size is 0!");
+    const {svfChunkSize, pvfChunkSize}=getSplitChunkSizes(size, skipFactor),
+        pvfChunk = new Uint8Array(pvfChunkSize),
+        svfChunk = new Uint8Array(svfChunkSize);
+
+    for (let readIndex = 0, pvfIndex = 0, svfIndex = 0, svfReadIndex = skipFactor; readIndex < size; readIndex++) {
+        if (svfReadIndex === readIndex) {
+            svfChunk[svfIndex++] = data[readIndex];
+            svfReadIndex += skipFactor;
+        } else {
+            pvfChunk[pvfIndex++] = data[readIndex];
+        }
+    }
+
+    return {
+        pvfChunk: pvfChunk,
+        pvfChunkSize: pvfChunkSize,
+        svfChunk: svfChunk,
+        svfChunkSize: svfChunkSize
+    }
 };
 
 const assert = (condition, message) => {
