@@ -101,6 +101,11 @@ const writeExtractions = (file, extractions) => {
     });
 };
 
+const getExtractionsSize = (extractions) => extractions.reduce(
+    (total, extraction) => (total + 2 + 1 + extraction.chunkSize ),
+    0
+);
+
 /* Create SVF File */
 const create = (mp4, extractions, audioMap, videoMap, filename) => {
     const start = (new Date()).getTime(),
@@ -115,7 +120,8 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
         videoConfigSize = 4 + 3 + 2 + 2 + 2 + avc.spsSize + 2 + avc.ppsSize,
         audioConfigSize = 4 + 3 + 1 + 1 + 1 + 1 + 3 + 2 + mp4a.adcdSize,
         offsetToOffsetMapSize = (audioMap.length + videoMap.length) * 13,
-        svfHeaderSize = 9 + 3 + mapsSize + videoConfigSize + audioConfigSize;
+        svfHeaderSize = 9 + 3 + mapsSize + videoConfigSize + audioConfigSize,
+        extractionsSize = getExtractionsSize(extractions);
     let offset = 0;
 
     /* Client related Headers Size*/
@@ -171,14 +177,16 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     offset += 3; //Offset To Offset map size
 
     /* write map used for skipping on server side */
-    writePvfToSvfMap(svfFile, createPvfToSvfMap(offset + 3 + offsetToOffsetMapSize, audioMap, videoMap));
+    writePvfToSvfMap(svfFile, createPvfToSvfMap(4 + offset + 3 + offsetToOffsetMapSize, audioMap, videoMap));
     offset += offsetToOffsetMapSize; //OffsetToOffset table data length
+
+    //write size of extractions chunk
+    File.writeUint32(svfFile, extractionsSize);
 
     /*Finally write the extractions*/
     writeExtractions(svfFile, extractions);
     svfFile.end();
 
-    const extractionsSize = extractions.reduce((total, extraction) => (total + 2 + 1 + extraction.chunkSize ), 0);
     const estimatedFileSize = offset + extractions.reduce((total, extraction) => (total + 2 + 1 + extraction.chunkSize ), 0);
     console.log("=======================================");
     console.log(filename + " => " + estimatedFileSize);
