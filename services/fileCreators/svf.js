@@ -112,8 +112,8 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
         videoMapSize = videoMap.length * 11,
         audioMapSize = audioMap.length * 11,
         mapsSize = 2 + videoMapSize + 2 + audioMapSize,//2 is the size of the header ( Uint16 )
-        videoConfigSize = 2 + 2 + 2 + avc.spsSize + 2 + avc.ppsSize,
-        audioConfigSize = 4 + 3 + 2 + mp4a.adcdSize,
+        videoConfigSize = 4 + 3 + 2 + 2 + 2 + avc.spsSize + 2 + avc.ppsSize,
+        audioConfigSize = 4 + 3 + 1 + 1 + 1 + 1 + 3 + 2 + mp4a.adcdSize,
         offsetToOffsetMapSize = (audioMap.length + videoMap.length) * 13,
         svfHeaderSize = 9 + 3 + mapsSize + videoConfigSize + audioConfigSize;
     let offset = 0;
@@ -140,9 +140,10 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     offset += mapsSize; //skip maps data length
 
     /*Video Configurations*/
+    File.writeUint32(svfFile, video.duration);
+    File.writeUint24(svfFile, video.timeScale);
     File.writeUint16(svfFile, video.width);
     File.writeUint16(svfFile, video.height);
-
     File.writeUint16(svfFile, avc.spsSize);
     File.writeData(svfFile, avc.sps);
     File.writeUint16(svfFile, avc.ppsSize);
@@ -150,6 +151,8 @@ const create = (mp4, extractions, audioMap, videoMap, filename) => {
     offset += videoConfigSize;
 
     /* Audio Configurations */
+    File.writeUint32(svfFile, audio.duration);
+    File.writeUint24(svfFile, audio.timeScale);
     File.writeUint8(svfFile, mp4a.channels);         //1 byte
     File.writeUint8(svfFile, mp4a.compressionId);    //1 byte
     File.writeUint8(svfFile, mp4a.packetSize);       //1 byte

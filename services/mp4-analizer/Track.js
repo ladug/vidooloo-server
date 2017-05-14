@@ -32,7 +32,6 @@ class Track {
         return (this.sampleCount * this.timeScale) / this.duration;
     }
 
-
     get stscTable() {
         return this.trak.mdia.minf.stbl.stsc.table;
     }
