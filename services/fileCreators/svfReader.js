@@ -115,8 +115,24 @@ class svfReader{
 
     }
 
-    readExtractions(){
+    readExtractionChunks(){
 
+
+        const chunkSize = this.stream.readU32();
+        const endPos = this.stream.position + chunkSize;
+        let res = Array();
+        while(this.stream.position < endPos){
+            let _size = this.stream.readU16();
+            res.push(
+                {
+                    size : _size,
+                    skip : this.stream.readU8(),
+                    chunk: this.stream.readU8Array(_size)
+                }
+            )
+        }
+
+        return { size: chunkSize, chunks: res}
     }
 
     read(){
@@ -134,7 +150,10 @@ class svfReader{
            audio: this.readAudioConfig()
        }
 
-       this.file.s2pMap = this.readSvfToPvfMap();
+       this.file.s2p = {
+           s2pMap : this.readSvfToPvfMap(),
+           s2pChunks: this.readExtractionChunks()
+       };
 
     }
 }
