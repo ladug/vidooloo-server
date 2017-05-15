@@ -3,6 +3,7 @@
  */
 const runTests = require("./services/mp4-analizer/test");
 const runReadTest = require("./services/mp4-analizer/test-read");
+const runDigest = require("./services/mp4-analizer/test-digest");
 
 module.exports = [
     {
@@ -22,6 +23,14 @@ module.exports = [
                 res.status(200).send(runReadTest());
             }
         ]
+    },
+    {
+        method: "get",
+        url: '/test-digest',
+        handlers: [
+            (req, res) => {
+                res.status(200).send(runDigest());
+            }
+        ]
     }
-
 ];
