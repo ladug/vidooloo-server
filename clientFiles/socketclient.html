@@ -6,6 +6,7 @@
 
     var wsUri = "ws://localhost:3101";
     var output;
+    var reader = new FileReader();
 
     function init()
     {
@@ -26,7 +27,9 @@
     function testWebSocket()
     {
         debugger
+
         websocket = new WebSocket(wsUri);
+        websocket.binaryType = 'arraybuffer';
         websocket.onopen = function(evt) { onOpen(evt) };
         websocket.onclose = function(evt) { onClose(evt) };
         websocket.onmessage = function(evt) { onMessage(evt) };
@@ -36,7 +39,7 @@
     function onOpen(evt)
     {debugger
         writeToScreen("CONNECTED");
-        doSend(getData());
+
     }
 
     function onClose(evt)
@@ -46,8 +49,10 @@
 
     function onMessage(evt)
     {debugger
-        writeToScreen('<span style="color: blue;">RESPONSE: ' + evt.data+'</span>');
-        websocket.close();
+        var arr = new Uint8Array(evt.data);
+
+        writeToScreen('<span style="color: blue;">RESPONSE: Uint8Array[' + arr+']</span>');
+
     }
 
     function onError(evt)
@@ -58,7 +63,9 @@
 
     function doSend(obj)
     {
-        for(var i =0 ; i < 20; i ++) {
+        //just check how it goes for i
+        //tried with 20 for instance
+        for(var i =0 ; i < 1; i ++) {
             obj.index = i;
             var message = JSON.stringify(obj);
             writeToScreen("SENT: " + message);
@@ -71,7 +78,7 @@
         debugger
         var pre = document.createElement("p");
         pre.style.wordWrap = "break-word";
-        pre.innerHTML = message;
+        pre.innerHTML =  message;
         output.appendChild(pre);
     }
 
@@ -80,5 +87,7 @@
 </script>
 
 <h2>WebSocket Test</h2>
+<button onClick=" doSend(getData());">Send Data</button>
+<button onClick =" websocket.close();">Close connection</button>
 
 <div id="output"></div>
