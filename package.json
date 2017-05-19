@@ -17,6 +17,7 @@
     "express-authentication": "^0.3.2",
     "express-session": "^1.15.2",
     "node-localdb": "0.0.3",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "ws": "^3.0.0"
   }
 }
