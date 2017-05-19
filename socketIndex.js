@@ -5,6 +5,7 @@ console.log('SocketServer listening to localhost:3101');
 
 wss.on('connection', function connection(ws) {
     ws.on('message', function incoming(message) {
+        const messageObj = JSON.parse(message);
         console.log('received: %s', message);
     });
 

@@ -14,6 +14,15 @@
         testWebSocket();
     }
 
+    function getData(){
+
+        var obj ={}
+        obj.timeOffset = 1;
+        obj.testProp = "kengooroo";
+        obj.index = -1;
+        return obj ;
+    }
+
     function testWebSocket()
     {
         debugger
@@ -27,7 +36,7 @@
     function onOpen(evt)
     {debugger
         writeToScreen("CONNECTED");
-        doSend("WebSocket rocks");
+        doSend(getData());
     }
 
     function onClose(evt)
@@ -47,11 +56,14 @@
         writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
     }
 
-    function doSend(message)
+    function doSend(obj)
     {
-        debugger
-        writeToScreen("SENT: " + message);
-        websocket.send(message);
+        for(var i =0 ; i < 20; i ++) {
+            obj.index = i;
+            var message = JSON.stringify(obj);
+            writeToScreen("SENT: " + message);
+            websocket.send(message);
+        }
     }
 
     function writeToScreen(message)
