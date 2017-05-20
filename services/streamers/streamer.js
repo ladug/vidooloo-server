@@ -1,9 +1,12 @@
 const digestSvf = require('../fileCreators/digestSvf'),
       fs = require('fs'),
-      bytesStream = require('../mp4-analizer/BytesStream');
+      bytesStream = require('../mp4-analizer/BytesStream'),
+      asyncSeries = require('async/series');
+
 
 const ERR_CODES = {
-    FILENAME_NOT_SUPPLIED : 1
+    FILENAME_NOT_SUPPLIED : 1,
+    ERR_OPEN_FILE : 2
 };
 
 class Streamer{
@@ -23,7 +26,8 @@ class Streamer{
                     console.log('====================================================');
                 }
 
-                const readFilePortions = (ws, path, portion) => {
+                //for test only
+                const readFilePortionsInRam = (ws, path, portion) => {
                     const data = new fs.readFileSync(path),
                            bStream =   new bytesStream(data);
                     let i = 0;
@@ -36,6 +40,35 @@ class Streamer{
 
                     }
                     return 'Sent ' + bStream.length + 'bytes in ' + i + ' portions of max: ' +  portion + ' bytes each. '
+                }
+
+
+                
+
+                const sendDataAsync = (ws, path, bufferLen) =>{
+                        let fd;
+                        asyncSeries({
+                              openAsync :(callback) => {
+                                fs.open(path,'r', (err, descriptor) =>{
+                                    if(err){
+                                        return callback(err);
+                                    }
+                                    fd = descriptor;
+                                    callback();
+                                })
+                              },
+                              readBuffAsync: (callback) => {
+                                  let s = fd;
+                                  console.log('second');
+
+                                  callback();
+                              }
+                         }, (err, results) =>{
+                              err && console.log(err)
+                            }
+
+                        )
+
                 }
 
                 const sendErrCode = (ws, errCode) => {
@@ -55,13 +88,14 @@ class Streamer{
                 let  msg ='';
 
                 if( !fileExists){
-                    sendErrCode(ws,ERR_CODES.FILENAME_NOT_SUPPLIED);
+                    sendErrCode(ws, ERR_CODES.FILENAME_NOT_SUPPLIED);
                 }
                 else{
-                    msg = readFilePortions(ws, path, portion);
+                    //msg = readFilePortionsInRam(ws, path, portion);
+                    sendDataAsync(ws, path, portion);
                 }
 
-                log(start, wsMessage, fileExists, path, msg);
+               // log(start, wsMessage, fileExists, path, msg);
 
 
             });
