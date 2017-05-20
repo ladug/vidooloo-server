@@ -7,6 +7,7 @@
     var wsUri = "ws://localhost:3101";
     var output;
     var reader = new FileReader();
+    var cntr = 0;
 
     function init()
     {
@@ -50,8 +51,8 @@
     function onMessage(evt)
     {debugger
         var arr = new Uint8Array(evt.data);
-
-        writeToScreen('<span style="color: blue;">RESPONSE: Uint8Array[' + arr+']</span>');
+        cntr ++;
+        writeToScreen('<span style="color: blue;">RESPONSE_' + cntr + ': Uint8Array[' + arr+']</span>');
 
     }
 

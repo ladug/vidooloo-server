@@ -29,7 +29,11 @@ class Streamer{
                     let i = 0;
                     while(bStream.position < bStream.length - 1){
                         let res = bStream.readU8Array(bStream.position + portion < bStream.length ? portion : (bStream.length - bStream.position) - 1);
-                        res && res.length && ws.send(res);
+                        if(res && res.length){
+                            ws.send(res);
+                            i++
+                        }
+
                     }
                     return 'Sent ' + bStream.length + 'bytes in ' + i + ' portions of max: ' +  portion + ' bytes each. '
                 }
