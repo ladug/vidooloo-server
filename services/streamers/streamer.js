@@ -1,8 +1,10 @@
 const digestSvf = require('../fileCreators/digestSvf'),
       fs = require('fs'),
-    bytesStream = require('../mp4-analizer/BytesStream');
+      bytesStream = require('../mp4-analizer/BytesStream');
 
-const ERROR_FILENAME_NOT_SUPPLIED = 1;
+const ERR_CODES = {
+    FILENAME_NOT_SUPPLIED : 1
+};
 
 class Streamer{
     constructor(server){
@@ -11,15 +13,25 @@ class Streamer{
          this.server = server;
 
          this.server.on('connection', function connection(ws, req) {
-            ws.on('message', function incoming(message) {
+            ws.on('message', function incoming(wsMessage) {
+
+                const log = (start, wsMessage, fileExists, path, sendMsg) =>{
+                    console.log('====================================================');
+                    console.info('WS message recieved: ' + wsMessage);
+                    console.info("Execution completed in " + ((new Date()).getTime() - start) + " ms");
+                    console.info(!fileExists ? 'File not found: ' + path + '. Send: ERR_CODES.FILENAME_NOT_SUPPLIED ': sendMsg)
+                    console.log('====================================================');
+                }
 
                 const readFilePortions = (ws, path, portion) => {
-                    const data = new fs.readFileSync(path);
-                    const bStream =   new bytesStream(data);
-                    for(let i = 0; i < data.length; i += portion){
-                        let res = bStream.readU8Array(portion)
-                        res.length && ws.send(res);
+                    const data = new fs.readFileSync(path),
+                           bStream =   new bytesStream(data);
+                    let i = 0;
+                    while(bStream.position < bStream.length - 1){
+                        let res = bStream.readU8Array(bStream.position + portion < bStream.length ? portion : (bStream.length - bStream.position) - 1);
+                        res && res.length && ws.send(res);
                     }
+                    return 'Sent ' + bStream.length + 'bytes in ' + i + ' portions of max: ' +  portion + ' bytes each. '
                 }
 
                 const sendErrCode = (ws, errCode) => {
@@ -27,24 +39,25 @@ class Streamer{
                     let res = new Uint8Array(1);
                     res[0] = errCode;
                     ws.send(res);
+
                 }
 
+                const start = (new Date()).getTime(),
+                    messageObj = JSON.parse(wsMessage),
+                    portion = (messageObj && messageObj.portion) || 1024,
+                    path = './files/svf/' + messageObj.file + '.svf',
+                    fileExists = fs.existsSync(path);
 
-                const messageObj = JSON.parse(message);
-                console.log('received: %s', message);
+                let  msg ='';
 
-                //test object communication
-                // messageObj.testProp = 'vidooloo';
-                // ws.send(JSON.stringify(messageObj));
-                const portion = (messageObj && messageObj.portion) || 1024;
-                const path = './files/svf/' + messageObj.file + '.svf';
-
-                if( !fs.existsSync(path)){
-                    sendErrCode(ws,ERROR_FILENAME_NOT_SUPPLIED);
+                if( !fileExists){
+                    sendErrCode(ws,ERR_CODES.FILENAME_NOT_SUPPLIED);
                 }
                 else{
-                    readFilePortions(ws, path, portion)
+                    msg = readFilePortions(ws, path, portion);
                 }
+
+                log(start, wsMessage, fileExists, path, msg);
 
 
             });
