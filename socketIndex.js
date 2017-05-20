@@ -1,9 +1,12 @@
-const WebSocket = require('ws');
+const WebSocket = require('ws'),
+    Streamer = require('./services/streamers/streamer');
 
 const wss = new WebSocket.Server({ port: 3101 });
 console.log('SocketServer listening to localhost:3101');
 
-wss.on('connection', function connection(ws) {
+const wsStreamer = new Streamer(wss);
+
+/*wss.on('connection', function connection(ws) {
     ws.on('message', function incoming(message) {
         const messageObj = JSON.parse(message);
         console.log('received: %s', message);
@@ -29,6 +32,6 @@ wss.on('connection', function connection(ws) {
     });
 
 
-});
+});*/
 
 
