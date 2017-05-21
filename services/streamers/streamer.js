@@ -166,7 +166,7 @@ class Streamer{
                                   }
                               },
                               readExtractionsLen: (callback) => {
-                                  //readBytes(fd, offset, 4).readUInt32BE()
+                                 
                                   const dataLen = 4, curOffset = 0;
                                   readSvfAsync(0, fd, position, dataLen, curOffset, (err, buffer) =>{
                                       if(err){return callback(err);}
