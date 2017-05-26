@@ -1,7 +1,8 @@
 const digestSvf = require('../fileCreators/digestSvf'),
       fs = require('fs'),
       bytesStream = require('../mp4-analizer/BytesStream'),
-      async = require('async');
+      async = require('async'),
+      buf = require('buffer');
 
 
 
@@ -55,30 +56,78 @@ class Streamer{
                     offset && buffer.fill(0, 0, offset);
                     return buffer;
                 }
-                const readAndSendAsync = (n, ws, fd, position, length,  offset, callback) => {
-                    const buffer = getBuffer(length, offset);
-                    fs.read(fd, buffer, offset, length, position, (err) => {
-                        if( err ){
-                            return (callback(err));
-                        }
-                        ws.send(buffer);
-                        callback && callback()
-                    });
-                };
 
-                const readNumAsync = (fd, position, length, offset, callback) => {
-                    const buffer = getBuffer(length, offset);
-                    fs.read(fd, buffer, offset, length, position, (err) => {
+
+                const getAddBuffer = (id, callback) => {
+                    //itai.GiveMeBufferForWsId( id, (err, res) =>
+                    // { if(err) return (callback(err)) callback(null, addBuffer); });
+                    const forNowBuffer = getBuffer(5000, 0)
+                    callback(null, forNowBuffer );
+                }
+
+
+                const sendBuffersSync = (ws, buffers, length, wsBuffer, wsBufferPos) => {
+
+                    for( let i = 0; i < buffers.length; i ++) {
+                        let curBufferPos = 0;
+                        let curBuffer = buffers[i];
+
+                        while (curBufferPos < currBuffer.length) {
+                            let reminder = length - wsBufferPos;
+                            var dif = buffers[0].length - reminder;
+                            var copyLen = dif > 0 ? buffers[0].length - dif : buffers[0].length;
+                            buf.copy(wsBuffer, wsBufferPos, buffers[0], buffers[0].length);
+                            wsBufferPos += copyLen;
+                            curBufferPos += copyLen;
+                            if (wsBufferPos == length) {
+                                ws.send(wsBuffer);
+                                wsBuffer = getBuffer(length);
+                                wsBufferPos = 0;
+                            }
+                        }
+                    }
+
+                }
+
+                const rsSvfChunksAsync = (repetition, id, fd, position, callback )=>{
+                    let svfChunkSize = 0, skipFactor = 0, svfBuffer = null, addBuffer = null, addBufferPos = 0;
+
+
+                    async.series({
+
+                        readChunckSizeAsync : (svfCallBack)=>{
+                            readBytes(fd, byte, 2)
+                        },
+                        readSkipFactorAsync: (svfCallBack)=> {
+                            readBytes(fd, byte, 1)
+                        },
+                        readSvfDataAsync: (svfCallback) => {
+
+                        },
+                        tryToGetAddAsync: (svfCallBack) =>{
+                            getAddBuffer(id, (err, buffer) => {
+                                if(err){ return (callback(err))}
+
+                                addBuffer = buffer;
+                            });
+
+                        },
+
+                    }, (err, result) => {
                         if(err){
                             return (callback(err));
                         }
-                        const num = buffer.readUInt32BE();
-                        callback(null, num);
-                    })
+                        let res = new Array();
+                        res.push(svfBuffer);
+                        addBuffer && res.push(addBuffer);
+                        callback(null, res);
+                    });
                 }
 
-                const readSvfAsync = (repetition, fd, position, length, offset, callback ) => {
+                const readSvfAsync = (fd, position, length, offset, callback ) => {
+
                     const buffer = getBuffer(length, offset);
+
                     fs.read(fd, buffer, offset, length, position, (err) => {
                         if(err){
                             return (callback(err));
@@ -91,7 +140,7 @@ class Streamer{
 
                 const sendDataAsync = (ws, path, length, pvfOffset, wsMessage, start) =>{
 
-                        let fd, times = 0, position = 0,  hdLen = 0, o2oMapSize = 0, extractionsLen = 0, filesize = 0;
+                        let fd, times = 0, position = 0,  hdLen = 0, o2oMapSize = 0, extractionsLen = 0, fsize = 0;
                         async.series({
                               openAsync :(callback) => {
                                 fs.open(path,'r', (err, descriptor) =>{
@@ -106,14 +155,15 @@ class Streamer{
                                   fs.fstat( fd, (err, stat) => {
                                       if(err){ return callback(err);}
 
-                                      filesize = stat.size;
+                                      fsize = stat.size;
                                       console.log('reading stats')
                                       callback();
                                   })
                               },
                               readClientHeadersLenAsync: (callback) => {
+
                                       const dataLen = 3, curOffset = 1;
-                                      readSvfAsync(0, fd, position, dataLen, curOffset, (err, buffer) =>{
+                                      readSvfAsync( fd, position, dataLen, curOffset, (err, buffer) =>{
                                           if(err){return callback(err);}
 
                                           position += dataLen;
@@ -147,7 +197,7 @@ class Streamer{
                               },
                               readO2OMapSizeAsync : (callback) => {
                                   const dataLen = 3, curOffset = 1;
-                                  readSvfAsync(0, fd, position, dataLen, curOffset, (err, buffer) =>{
+                                  readSvfAsync( fd, position, dataLen, curOffset, (err, buffer) =>{
                                       if(err){return callback(err);}
                                       o2oMapSize =  buffer.readUInt32BE();
 
@@ -166,46 +216,58 @@ class Streamer{
                                   }
                               },
                               readExtractionsLen: (callback) => {
-                                 
+
                                   const dataLen = 4, curOffset = 0;
-                                  readSvfAsync(0, fd, position, dataLen, curOffset, (err, buffer) =>{
+                                  readSvfAsync( fd, position, dataLen, curOffset, (err, buffer) =>{
                                       if(err){return callback(err);}
                                       extractionsLen =  buffer.readUInt32BE();
                                       position += dataLen;
                                       callback();
                                   });
                               },
-                            /* rsChunksAsync: (callback) => {
-                                  console.log('rsChuckAsync');
+                             rsChunksAsync: (callback) => {
+
+                                  times = Math.ceil(extractionsLen / length);
+                                  let wsBuffer = getBuffer(length);
+                                  let wsBufferPos = 0;
+
                                   async.timesSeries(times, (n, next) =>{
                                       if( n > 0){
                                           position += length;
                                       }
 
 
-                                      readAndSendAsync(n, ws,  fd, position, length, offset, (err, result) =>{
-                                          console.log('sent')
-                                          next(err, result);
+                                      rsSvfChunksAsync(n, fd, position, (err, buffers) =>{
+
+
+
+
+
+
+
+
+
+                                          next(err, buffer);
                                       })
-                                      }, (err, result) => {
+                                      }, (err, buffer) => {
                                           if (err){
                                               return callback(err);
                                           }
                                          callback();
                                       }
                                   )
-                              },*/
+                              },
                               //here we'll need some registration
                               // of advertisement package sent to
                               // client
                               logProcces: (callback) => {
-                                  log(start, wsMessage, null, {len : filesize, hdr: hdLen, o2o: o2oMapSize, extr: extractionsLen});
+                                  log(start, wsMessage, null, {len : fsize, hdr: hdLen, o2o: o2oMapSize, extr: extractionsLen});
                                   callback();
                               }
 
                          }, (err, results) =>{
                               if (err ){
-                                  log(start, wsMessage, err, filesize );
+                                  log(start, wsMessage, err, fsize );
                                   sendErrCode(ws, ERR_CODES.ERR_JUST_FUCKED_UP);
                               }
                             }
