@@ -30,6 +30,7 @@ class Streamer{
                         console.info('Client headers len:  ' + stats.hdr + ' bytes');
                         console.info('O2O map len: '+ stats.o2o + ' bytes');
                         console.info('Extractions len ' + stats.extr + ' bytes');
+                        console.info('Bytes sent to client: ' + stats.sent );
                     }
                     errs && console.info('Errors: ' + errs);
                     console.log('====================================================');
@@ -65,6 +66,11 @@ class Streamer{
                     callback(null, forNowBuffer );
                 }
 
+                const testExecStatus = (ws, cur, end ) => {
+                    //atm ws.stop aka singal blablabla
+                   return ws.stop || (end <= cur)
+                }
+
 
                 const sendBuffersSync = (ws, buffers, length, wsBuffer, wsBufferPos) => {
 
@@ -89,8 +95,8 @@ class Streamer{
 
                 }
 
-                const rsSvfChunksAsync = (repetition, id, fd, position, callback )=>{
-                    let svfChunkSize = 0, skipFactor = 0, svfBuffer = null, addBuffer = null, addBufferPos = 0;
+                const rsSvfChunksAsync = ( id, fd, position, callback )=>{
+                    let svfChunkSize = 0, skipFactor = 0, svfBuffer = null;
 
 
                     async.series({
@@ -109,6 +115,7 @@ class Streamer{
                                 if(err){ return (callback(err))}
 
                                 addBuffer = buffer;
+                                callback(null, buffer);
                             });
 
                         },
@@ -119,7 +126,7 @@ class Streamer{
                         }
                         let res = new Array();
                         res.push(svfBuffer);
-                        addBuffer && res.push(addBuffer);
+                        result.tryToGetAddAsync && res.push(result.tryToGetAddAsync);
                         callback(null, res);
                     });
                 }
@@ -140,7 +147,7 @@ class Streamer{
 
                 const sendDataAsync = (ws, path, length, pvfOffset, wsMessage, start) =>{
 
-                        let fd, times = 0, position = 0,  hdLen = 0, o2oMapSize = 0, extractionsLen = 0, fsize = 0;
+                        let fd,  position = 0,  hdLen = 0, o2oMapSize = 0, extractionsLen = 0, fsize = 0, bytesSent = 0;
                         async.series({
                               openAsync :(callback) => {
                                 fs.open(path,'r', (err, descriptor) =>{
@@ -188,7 +195,7 @@ class Streamer{
 
                                           ws.send(buffer);
                                           position += hdLen;
-
+                                          bytesSent += buffer.length;
                                           callback();
                                       })
                                   }else{
@@ -227,41 +234,57 @@ class Streamer{
                               },
                              rsChunksAsync: (callback) => {
 
-                                  times = Math.ceil(extractionsLen / length);
-                                  let wsBuffer = getBuffer(length);
-                                  let wsBufferPos = 0;
 
-                                  async.timesSeries(times, (n, next) =>{
-                                      if( n > 0){
-                                          position += length;
-                                      }
+                                  let wsBuffer = getBuffer(length),
+                                      wsBufferPos = 0,
+                                      end = position + extractionsLen;
 
+                                  //todo
+                                  const fake = { stop : false };
 
-                                      rsSvfChunksAsync(n, fd, position, (err, buffers) =>{
+                                  async.until(testExecStatus(fake, position, end),
 
+                                      rsSvfChunksAsync(ws.id, fd, position, (err, buffers) => {
 
+                                          if(err) {return callback(err);}
+                                          if( ! buffers || !buffers.length ){ return callback('Failed to get svf chuncks!')}
 
+                                          for( let i = 0; i < buffers.length; i ++) {
+                                              let curBufferPos = 0;
+                                              while (curBufferPos < buffers[i].length) {
 
+                                                  const reminder = wsBuffer.length - wsBufferPos;
+                                                  const dif = buffers[i].length - reminder;
+                                                  const copyLen = dif > 0 ? buffers[i].length - dif : buffers[i].length;
 
+                                                  buf.copy(wsBuffer, wsBufferPos, buffers[i], copyLen);
 
+                                                  wsBufferPos += copyLen;
+                                                  curBufferPos += copyLen;
 
-
-
-                                          next(err, buffer);
-                                      })
-                                      }, (err, buffer) => {
-                                          if (err){
-                                              return callback(err);
+                                                  if (wsBufferPos == length) {
+                                                      ws.send(wsBuffer);
+                                                      bytesSent += wsBuffer.length;
+                                                      //use all the same buffer to
+                                                      //  wsBuffer = getBuffer(length);
+                                                      wsBufferPos = 0;
+                                                  }
+                                              }
                                           }
-                                         callback();
+                                      }),
+
+                                      (err) => {
+                                        return callback(err);
+
+                                        wsBufferPos && ws.send( wsBuffer.slice(0,wsBufferPos));
+                                        callback();
                                       }
+
                                   )
+
                               },
-                              //here we'll need some registration
-                              // of advertisement package sent to
-                              // client
                               logProcces: (callback) => {
-                                  log(start, wsMessage, null, {len : fsize, hdr: hdLen, o2o: o2oMapSize, extr: extractionsLen});
+                                  log(start, wsMessage, null, {len : fsize, hdr: hdLen, o2o: o2oMapSize, extr: extractionsLen, sent: bytesSent});
                                   callback();
                               }
 
