@@ -35,6 +35,7 @@ const writeUint24 = (file, data) => {
     file.write(buffer.slice(1, 4));
 };
 
+
 const writeUint32 = (file, data) => {
     const buffer = Buffer.alloc(4);
     buffer.writeInt32BE(data);

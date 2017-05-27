@@ -2,7 +2,8 @@ const digestSvf = require('../fileCreators/digestSvf'),
       fs = require('fs'),
       bytesStream = require('../mp4-analizer/BytesStream'),
       async = require('async'),
-      buf = require('buffer');
+      buf = require('services/streamers/bufferUtils'),
+      BufferUtil = require('./bufferUtils');
 
 
 
@@ -52,17 +53,13 @@ class Streamer{
                     return 'Sent ' + bStream.length + 'bytes in ' + i + ' portions of max: ' +  portion + ' bytes each. '
                 }
 
-                const getBuffer = (len, offset) => {
-                    const buffer = new Buffer(len + offset);
-                    offset && buffer.fill(0, 0, offset);
-                    return buffer;
-                }
+
 
 
                 const getAddBuffer = (id, callback) => {
                     //itai.GiveMeBufferForWsId( id, (err, res) =>
                     // { if(err) return (callback(err)) callback(null, addBuffer); });
-                    const forNowBuffer = getBuffer(5000, 0)
+                    const forNowBuffer = BufferUtil.getBuffer(5000, 0)
                     callback(null, forNowBuffer );
                 }
 
@@ -72,7 +69,7 @@ class Streamer{
                 }
 
 
-                const sendBuffersSync = (ws, buffers, length, wsBuffer, wsBufferPos) => {
+               /* const sendBuffersSync = (ws, buffers, length, wsBuffer, wsBufferPos) => {
 
                     for( let i = 0; i < buffers.length; i ++) {
                         let curBufferPos = 0;
@@ -87,38 +84,54 @@ class Streamer{
                             curBufferPos += copyLen;
                             if (wsBufferPos == length) {
                                 ws.send(wsBuffer);
-                                wsBuffer = getBuffer(length);
+                                wsBuffer = Buffer.getBuffer(length);
                                 wsBufferPos = 0;
                             }
                         }
                     }
 
-                }
+                }*/
 
                 const rsSvfChunksAsync = ( id, fd, position, callback )=>{
-                    let svfChunkSize = 0, skipFactor = 0, svfBuffer = null;
+                    let svfChunkSize = 0, skipFactor = 0, svfBufferPos = 0, svfBuffer = null, addBuffer = null;
 
 
                     async.series({
-
-                        readChunckSizeAsync : (svfCallBack)=>{
-                            readBytes(fd, byte, 2)
-                        },
-                        readSkipFactorAsync: (svfCallBack)=> {
-                            readBytes(fd, byte, 1)
-                        },
-                        readSvfDataAsync: (svfCallback) => {
-
-                        },
                         tryToGetAddAsync: (svfCallBack) =>{
                             getAddBuffer(id, (err, buffer) => {
                                 if(err){ return (callback(err))}
 
                                 addBuffer = buffer;
-                                callback(null, buffer);
+                                callback();
                             });
 
                         },
+
+                        manageSizesAsync : (svfCallBack)=>{
+
+                            const dataLen = 2, curOffset = 0, pvfLengthBytes = 3, skipFactorBytes = 1;
+
+                            BufferUtil.readFileNumAsync(fd, position, dataLen,
+                                curOffset, BufferUtil.NumReadModes.UInt16BE, (err, num) =>{
+                                if(err){return callback(err);}
+
+                                svfChunkSize = num;
+
+                                position += dataLen;
+
+                                svfBuffer = BufferUtil.getBuffer(svfChunkSize + pvfLengthBytes + skipFactorBytes);
+                                buf.copy(svfBuffer, 0, Buffer.alloc(4).readUInt32BE(addBuffer.Length), pvfLengthBytes);
+                                svfBufferPos += pvfLengthBytes;
+
+                                callback();
+                            })
+                        },
+                        writeSvfChunkLen: (svfCallBack)=> {
+
+                        },
+                        readSvfChunkAsync: (svfCallback) => {
+
+                        }
 
                     }, (err, result) => {
                         if(err){
@@ -126,14 +139,14 @@ class Streamer{
                         }
                         let res = new Array();
                         res.push(svfBuffer);
-                        result.tryToGetAddAsync && res.push(result.tryToGetAddAsync);
+                        addBuffer && res.push(addBuffer);
                         callback(null, res);
                     });
                 }
 
-                const readSvfAsync = (fd, position, length, offset, callback ) => {
+               /* const readSvfAsync = (fd, position, length, offset, callback ) => {
 
-                    const buffer = getBuffer(length, offset);
+                    const buffer = Buffer.getBuffer(length, offset);
 
                     fs.read(fd, buffer, offset, length, position, (err) => {
                         if(err){
@@ -141,7 +154,7 @@ class Streamer{
                         }
                         callback(null, buffer);
                     })
-                }
+                }*/
 
 
 
@@ -170,12 +183,13 @@ class Streamer{
                               readClientHeadersLenAsync: (callback) => {
 
                                       const dataLen = 3, curOffset = 1;
-                                      readSvfAsync( fd, position, dataLen, curOffset, (err, buffer) =>{
+                                      BufferUtil.readFileNumAsync( fd, position, dataLen, curOffset,
+                                          BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
+
                                           if(err){return callback(err);}
 
                                           position += dataLen;
-
-                                          hdLen =  buffer.readUInt32BE();
+                                          hdLen =  num;
 
                                           //if pvfOffset == 0, then add hdLen after
                                           //sending client headers, otherwise do it here
@@ -190,7 +204,7 @@ class Streamer{
 
                                   //send headers iff pvfOffset not set
                                   if(!pvfOffset){
-                                      readSvfAsync(0, fd, position, hdLen, 0, (err, buffer) => {
+                                      BufferUtil.readFileBufAsync(fd, position, hdLen, 0, (err, buffer) => {
                                           if(err){return callback(err);}
 
                                           ws.send(buffer);
@@ -204,10 +218,10 @@ class Streamer{
                               },
                               readO2OMapSizeAsync : (callback) => {
                                   const dataLen = 3, curOffset = 1;
-                                  readSvfAsync( fd, position, dataLen, curOffset, (err, buffer) =>{
+                                  BufferUtil.readFileNumAsync( fd, position, dataLen,
+                                      curOffset, BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
                                       if(err){return callback(err);}
-                                      o2oMapSize =  buffer.readUInt32BE();
-
+                                      o2oMapSize =  num;
                                       position += dataLen;
 
                                       //if pvfOffset is not defined, then no need to calc pos in chuncks
@@ -223,19 +237,17 @@ class Streamer{
                                   }
                               },
                               readExtractionsLen: (callback) => {
-
                                   const dataLen = 4, curOffset = 0;
-                                  readSvfAsync( fd, position, dataLen, curOffset, (err, buffer) =>{
+                                  BufferUtil.readFileNumAsync( fd, position, dataLen,
+                                      curOffset, Buffer.NumReadModes.UInt32BE, (err, num) =>{
                                       if(err){return callback(err);}
-                                      extractionsLen =  buffer.readUInt32BE();
+                                      extractionsLen =  num;
                                       position += dataLen;
                                       callback();
                                   });
                               },
                              rsChunksAsync: (callback) => {
-
-
-                                  let wsBuffer = getBuffer(length),
+                                  let wsBuffer = BufferUtil.getBuffer(length),
                                       wsBufferPos = 0,
                                       end = position + extractionsLen;
 
@@ -251,7 +263,7 @@ class Streamer{
 
                                           for( let i = 0; i < buffers.length; i ++) {
                                               let curBufferPos = 0;
-                                              while (curBufferPos < buffers[i].length) {
+                                              while (buffers[i] && curBufferPos < buffers[i].length) {
 
                                                   const reminder = wsBuffer.length - wsBufferPos;
                                                   const dif = buffers[i].length - reminder;
@@ -266,7 +278,7 @@ class Streamer{
                                                       ws.send(wsBuffer);
                                                       bytesSent += wsBuffer.length;
                                                       //use all the same buffer to
-                                                      //  wsBuffer = getBuffer(length);
+                                                      //  wsBuffer = Buffer.getBuffer(length);
                                                       wsBufferPos = 0;
                                                   }
                                               }
