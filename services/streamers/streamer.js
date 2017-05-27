@@ -93,7 +93,8 @@ class Streamer{
                 }*/
 
                 const rsSvfChunksAsync = ( id, fd, position, callback )=>{
-                    let svfChunkSize = 0, skipFactor = 0, svfBufferPos = 0, svfBuffer = null, addBuffer = null;
+                    const skipFactorBytes = 1;
+                    let svfChunkSize = 0,  svfBuffer = null, addBuffer = null, addLenBuffer = null;
 
 
                     async.series({
@@ -102,35 +103,33 @@ class Streamer{
                                 if(err){ return (callback(err))}
 
                                 addBuffer = buffer;
-                                callback();
+
+                                addLenBuffer = BufferUtil.getUint24AsBuffer((addBuffer && addBuffer.length) || 0);
+                                svfCallBack();
                             });
 
                         },
 
-                        manageSizesAsync : (svfCallBack)=>{
+                        readSvfChunkLengthAsync : (svfCallBack)=>{
 
-                            const dataLen = 2, curOffset = 0, pvfLengthBytes = 3, skipFactorBytes = 1;
+                            const dataLen = 2, curOffset = 0;
 
                             BufferUtil.readFileNumAsync(fd, position, dataLen,
                                 curOffset, BufferUtil.NumReadModes.UInt16BE, (err, num) =>{
                                 if(err){return callback(err);}
-
                                 svfChunkSize = num;
-
                                 position += dataLen;
-
-                                svfBuffer = BufferUtil.getBuffer(svfChunkSize + pvfLengthBytes + skipFactorBytes);
-                                buf.copy(svfBuffer, 0, Buffer.alloc(4).readUInt32BE(addBuffer.Length), pvfLengthBytes);
-                                svfBufferPos += pvfLengthBytes;
-
-                                callback();
+                                svfCallBack();
                             })
                         },
-                        writeSvfChunkLen: (svfCallBack)=> {
 
-                        },
                         readSvfChunkAsync: (svfCallback) => {
-
+                            let len = svfChunkSize + skipFactorBytes;
+                            BufferUtil.readFileBufAsync(fd, position, len, 0, (err, buffer) => {
+                                if(err){return callback(err);}
+                                svfBuffer = buffer;
+                                svfCallback();
+                            })
                         }
 
                     }, (err, result) => {
@@ -138,6 +137,7 @@ class Streamer{
                             return (callback(err));
                         }
                         let res = new Array();
+                        res.push(addLenBuffer)
                         res.push(svfBuffer);
                         addBuffer && res.push(addBuffer);
                         callback(null, res);
@@ -281,6 +281,8 @@ class Streamer{
                                                       //  wsBuffer = Buffer.getBuffer(length);
                                                       wsBufferPos = 0;
                                                   }
+
+                                                  ( i < buffers.length - 1) && (position += buffers[i].length);
                                               }
                                           }
                                       }),

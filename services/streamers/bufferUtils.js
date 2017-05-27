@@ -16,6 +16,17 @@ const getBuffer = (len, offset) => {
     return buffer;
 }
 
+const getUint24AsBuffer = (data) => {
+
+    if(! data ){
+        return getBuffer(3,3);
+    }
+
+   const buffer =  Buffer.alloc(4);
+   buffer.writeUInt32BE(data);
+   return buffer.slice(1,4);
+}
+
 
 const readFileBufAsync = (fd, position, length, offset, callback ) => {
 
@@ -51,5 +62,6 @@ module.exports = {
     getBuffer,
     readFileBufAsync,
     readFileNumAsync,
+    getUint24AsBuffer,
     NumReadModes
 }
