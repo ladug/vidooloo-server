@@ -1,8 +1,7 @@
 /**
  * Created by volodya on 5/27/2017.
  */
-const buf = require('services/streamers/bufferUtils'),
-    fs = require('fs');
+const  fs = require('fs');
 
 const NumReadModes = {
     UInt16BE : 0,

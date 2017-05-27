@@ -1,9 +1,8 @@
-const digestSvf = require('../fileCreators/digestSvf'),
-      fs = require('fs'),
+const fs = require('fs'),
       bytesStream = require('../mp4-analizer/BytesStream'),
       async = require('async'),
-      buf = require('services/streamers/bufferUtils'),
-      BufferUtil = require('./bufferUtils');
+      BufferUtil = require('./bufferUtils'),
+      uid = require('uid-safe');
 
 
 
@@ -20,6 +19,7 @@ class Streamer{
          this.server = server;
 
          this.server.on('connection', function connection(ws, req) {
+             ws._socket._sockname = uid.sync(18);
             ws.on('message', function incoming(wsMessage) {
 
                 const log = (start, wsMessage, errs, stats) =>{
@@ -98,41 +98,40 @@ class Streamer{
 
 
                     async.series({
-                        tryToGetAddAsync: (svfCallBack) =>{
+                        tryToGetAddAsync: (callback) =>{
                             getAddBuffer(id, (err, buffer) => {
                                 if(err){ return (callback(err))}
-
                                 addBuffer = buffer;
-
                                 addLenBuffer = BufferUtil.getUint24AsBuffer((addBuffer && addBuffer.length) || 0);
-                                svfCallBack();
+                                console.log('chunks => tryToGetAddAsync');
+                                callback();
                             });
 
                         },
 
-                        readSvfChunkLengthAsync : (svfCallBack)=>{
-
+                        readSvfChunkLengthAsync : (callback)=>{
                             const dataLen = 2, curOffset = 0;
-
                             BufferUtil.readFileNumAsync(fd, position, dataLen,
                                 curOffset, BufferUtil.NumReadModes.UInt16BE, (err, num) =>{
-                                if(err){return callback(err);}
+                                if(err){return svfCallBack(err);}
                                 svfChunkSize = num;
                                 position += dataLen;
-                                svfCallBack();
-                            })
+                                console.log('chunks => readSvfChunkLengthAsync');
+                                    callback();
+                            });
                         },
 
-                        readSvfChunkAsync: (svfCallback) => {
-                            let len = svfChunkSize + skipFactorBytes;
-                            BufferUtil.readFileBufAsync(fd, position, len, 0, (err, buffer) => {
+                        readSvfChunkAsync: (callback) => {
+                            const len = svfChunkSize + skipFactorBytes, curOffset = 0;
+                            BufferUtil.readFileBufAsync(fd, position, len, curOffset, (err, buffer) => {
                                 if(err){return callback(err);}
                                 svfBuffer = buffer;
-                                svfCallback();
+                                console.log('chunks => readSvfChunkAsync');
+                                callback();
                             })
                         }
 
-                    }, (err, result) => {
+                    }, (err) => {
                         if(err){
                             return (callback(err));
                         }
@@ -194,8 +193,7 @@ class Streamer{
                                           //if pvfOffset == 0, then add hdLen after
                                           //sending client headers, otherwise do it here
                                           pvfOffset && (position += hdLen);
-
-
+                                           console.log('readClientHeadersLenAsync') ;
                                           callback();
                                       })
                               },
@@ -210,9 +208,11 @@ class Streamer{
                                           ws.send(buffer);
                                           position += hdLen;
                                           bytesSent += buffer.length;
+                                          console.log('readClientHeadersLenAsync => no pvfOffset') ;
                                           callback();
                                       })
                                   }else{
+                                      console.log('readClientHeadersLenAsync => yes pvfOffset') ;
                                       callback()
                                   }
                               },
@@ -226,6 +226,7 @@ class Streamer{
 
                                       //if pvfOffset is not defined, then no need to calc pos in chuncks
                                       pvfOffset || (position += o2oMapSize);
+                                      console.log('readO2OMapSizeAsync') ;
                                       callback();
                                   })
                               },
@@ -233,16 +234,18 @@ class Streamer{
                                   if(pvfOffset){
                                        console.log('oops forgot to calc svfOffset .... mmmm');
                                   }else{
+                                      console.log('setSvfOffset, but pvfOffset = 0');
                                       callback();
                                   }
                               },
                               readExtractionsLen: (callback) => {
                                   const dataLen = 4, curOffset = 0;
                                   BufferUtil.readFileNumAsync( fd, position, dataLen,
-                                      curOffset, Buffer.NumReadModes.UInt32BE, (err, num) =>{
+                                      curOffset, BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
                                       if(err){return callback(err);}
                                       extractionsLen =  num;
                                       position += dataLen;
+                                      console.log('readExtractionsLen');
                                       callback();
                                   });
                               },
@@ -256,7 +259,7 @@ class Streamer{
 
                                   async.until(testExecStatus(fake, position, end),
 
-                                      rsSvfChunksAsync(ws.id, fd, position, (err, buffers) => {
+                                      rsSvfChunksAsync(ws._socket._sockname, fd, position, (err, buffers) => {
 
                                           if(err) {return callback(err);}
                                           if( ! buffers || !buffers.length ){ return callback('Failed to get svf chuncks!')}
