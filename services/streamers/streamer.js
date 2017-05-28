@@ -98,41 +98,54 @@ class Streamer{
 
 
                     async.series({
-                        tryToGetAddAsync: (callback) =>{
+                        tryToGetAddAsync: (mycallback) =>{
                             getAddBuffer(id, (err, buffer) => {
-                                if(err){ return (callback(err))}
+                                if(err){ return (mycallback(err))}
                                 addBuffer = buffer;
                                 addLenBuffer = BufferUtil.getUint24AsBuffer((addBuffer && addBuffer.length) || 0);
                                 console.log('chunks => tryToGetAddAsync');
-                                callback();
+                                mycallback();
                             });
 
                         },
 
-                        readSvfChunkLengthAsync : (callback)=>{
+                        readSvfChunkLengthAsync : (mycallback)=>{
                             const dataLen = 2, curOffset = 0;
                             BufferUtil.readFileNumAsync(fd, position, dataLen,
                                 curOffset, BufferUtil.NumReadModes.UInt16BE, (err, num) =>{
-                                if(err){return svfCallBack(err);}
+                                if(err){return mycallback(err);}
                                 svfChunkSize = num;
                                 position += dataLen;
                                 console.log('chunks => readSvfChunkLengthAsync');
-                                    callback();
+                                    mycallback();
                             });
+
+                           /* const buffer = BufferUtil.getBuffer(dataLen, curOffset);
+
+                            fs.read(fd, buffer, curOffset, dataLen, position, (err) => {
+                                if(err){
+                                    return (callback(err));
+                                }
+                                svfChunkSize = buffer.readUInt16BE();
+                                position += dataLen;
+                                callback();
+                            })*/
                         },
 
-                        readSvfChunkAsync: (callback) => {
+                        readSvfChunkAsync: (mycallback) => {
                             const len = svfChunkSize + skipFactorBytes, curOffset = 0;
                             BufferUtil.readFileBufAsync(fd, position, len, curOffset, (err, buffer) => {
-                                if(err){return callback(err);}
+                                if(err){return mycallback(err);}
                                 svfBuffer = buffer;
                                 console.log('chunks => readSvfChunkAsync');
-                                callback();
+                                mycallback();
                             })
                         }
 
                     }, (err) => {
+                        console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
                         if(err){
+
                             return (callback(err));
                         }
                         let res = new Array();
@@ -257,44 +270,50 @@ class Streamer{
                                   //todo
                                   const fake = { stop : false };
 
-                                  async.until(testExecStatus(fake, position, end),
+                                  async.until( () => { return testExecStatus(fake, position, end) },
 
-                                      rsSvfChunksAsync(ws._socket._sockname, fd, position, (err, buffers) => {
+                                      (done)   =>  {
+                                      console.info("done :: " + done);
+                                            rsSvfChunksAsync(ws._socket._sockname, fd, position, (err, buffers) => {
+                                                console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers + " err:: " + err);
+                                              if(err) {return callback(err);}
+                                              if( ! buffers || !buffers.length ){ return callback('Failed to get svf chuncks!')}
 
-                                          if(err) {return callback(err);}
-                                          if( ! buffers || !buffers.length ){ return callback('Failed to get svf chuncks!')}
+                                              for( let i = 0; i < buffers.length; i ++) {
+                                                  let curBufferPos = 0;
+                                                  while (buffers[i] && curBufferPos < buffers[i].length) {
 
-                                          for( let i = 0; i < buffers.length; i ++) {
-                                              let curBufferPos = 0;
-                                              while (buffers[i] && curBufferPos < buffers[i].length) {
+                                                      const reminder = wsBuffer.length - wsBufferPos;
+                                                      const dif = buffers[i].length - reminder;
+                                                      const copyLen = dif > 0 ? buffers[i].length - dif : buffers[i].length;
 
-                                                  const reminder = wsBuffer.length - wsBufferPos;
-                                                  const dif = buffers[i].length - reminder;
-                                                  const copyLen = dif > 0 ? buffers[i].length - dif : buffers[i].length;
+                                                      buffers[i].copy(wsBuffer, wsBufferPos, 0, copyLen);
 
-                                                  buf.copy(wsBuffer, wsBufferPos, buffers[i], copyLen);
+                                                      wsBufferPos += copyLen;
+                                                      curBufferPos += copyLen;
 
-                                                  wsBufferPos += copyLen;
-                                                  curBufferPos += copyLen;
+                                                      if (wsBufferPos == length) {
+                                                          ws.send(wsBuffer);
+                                                          bytesSent += wsBuffer.length;
+                                                          //use all the same buffer to
+                                                          //  wsBuffer = Buffer.getBuffer(length);
+                                                          wsBufferPos = 0;
+                                                      }
 
-                                                  if (wsBufferPos == length) {
-                                                      ws.send(wsBuffer);
-                                                      bytesSent += wsBuffer.length;
-                                                      //use all the same buffer to
-                                                      //  wsBuffer = Buffer.getBuffer(length);
-                                                      wsBufferPos = 0;
+                                                      ( i < buffers.length - 1) && (position += buffers[i].length);
                                                   }
-
-                                                  ( i < buffers.length - 1) && (position += buffers[i].length);
                                               }
-                                          }
-                                      }),
 
-                                      (err) => {
-                                        return callback(err);
+                                              done();
+                                          })
+                                      ,
 
-                                        wsBufferPos && ws.send( wsBuffer.slice(0,wsBufferPos));
-                                        callback();
+                                              (err) => {
+                                                  return callback(err);
+
+                                                  wsBufferPos && ws.send( wsBuffer.slice(0,wsBufferPos));
+                                                  callback();
+                                              }
                                       }
 
                                   )
@@ -306,7 +325,9 @@ class Streamer{
                               }
 
                          }, (err, results) =>{
+                            console.info("end of async series err: " + err + " result :: " + results);
                               if (err ){
+
                                   log(start, wsMessage, err, fsize );
                                   sendErrCode(ws, ERR_CODES.ERR_JUST_FUCKED_UP);
                               }

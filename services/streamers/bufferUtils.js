@@ -9,7 +9,7 @@ const NumReadModes = {
 }
 
 
-const getBuffer = (len, offset) => {
+const getBuffer = (len, offset = 0) => {
     const buffer = new Buffer(len + offset);
     offset && buffer.fill(0, 0, offset);
     return buffer;

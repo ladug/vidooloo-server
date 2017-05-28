@@ -59,7 +59,7 @@ class svfReader{
                 ppsSize : _ppsSize,
                 pps : _pps
             };
-    }
+     }
 
     readSvfMap(  ){
 
