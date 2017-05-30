@@ -2,7 +2,8 @@ const fs = require('fs'),
       bytesStream = require('../mp4-analizer/BytesStream'),
       async = require('async'),
       BufferUtil = require('./bufferUtils'),
-      uid = require('uid-safe');
+      uid = require('uid-safe'),
+      shallowClone =  require('util')._extend;
 
 
 
@@ -63,34 +64,12 @@ class Streamer{
                     callback(null, forNowBuffer );
                 }
 
-                const testExecStatus = (ws, cur, end ) => {
+                const testExecStatus = (ws, sent, cur, end ) => {
                     //atm ws.stop aka singal blablabla
-                   return ws.stop || (end <= cur)
+                   return ws.stop || sent || (end <= cur)
                 }
 
 
-               /* const sendBuffersSync = (ws, buffers, length, wsBuffer, wsBufferPos) => {
-
-                    for( let i = 0; i < buffers.length; i ++) {
-                        let curBufferPos = 0;
-                        let curBuffer = buffers[i];
-
-                        while (curBufferPos < currBuffer.length) {
-                            let reminder = length - wsBufferPos;
-                            var dif = buffers[0].length - reminder;
-                            var copyLen = dif > 0 ? buffers[0].length - dif : buffers[0].length;
-                            buf.copy(wsBuffer, wsBufferPos, buffers[0], buffers[0].length);
-                            wsBufferPos += copyLen;
-                            curBufferPos += copyLen;
-                            if (wsBufferPos == length) {
-                                ws.send(wsBuffer);
-                                wsBuffer = Buffer.getBuffer(length);
-                                wsBufferPos = 0;
-                            }
-                        }
-                    }
-
-                }*/
 
                 const rsSvfChunksAsync = ( id, fd, position, callback )=>{
                     const skipFactorBytes = 1;
@@ -119,17 +98,6 @@ class Streamer{
                                 console.log('chunks => readSvfChunkLengthAsync');
                                     mycallback();
                             });
-
-                           /* const buffer = BufferUtil.getBuffer(dataLen, curOffset);
-
-                            fs.read(fd, buffer, curOffset, dataLen, position, (err) => {
-                                if(err){
-                                    return (callback(err));
-                                }
-                                svfChunkSize = buffer.readUInt16BE();
-                                position += dataLen;
-                                callback();
-                            })*/
                         },
 
                         readSvfChunkAsync: (mycallback) => {
@@ -143,7 +111,7 @@ class Streamer{
                         }
 
                     }, (err) => {
-                        console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
+                       // console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
                         if(err){
 
                             return (callback(err));
@@ -156,23 +124,103 @@ class Streamer{
                     });
                 }
 
-               /* const readSvfAsync = (fd, position, length, offset, callback ) => {
-
-                    const buffer = Buffer.getBuffer(length, offset);
-
-                    fs.read(fd, buffer, offset, length, position, (err) => {
-                        if(err){
-                            return (callback(err));
-                        }
-                        callback(null, buffer);
-                    })
-                }*/
-
-
-
                 const sendDataAsync = (ws, path, length, pvfOffset, wsMessage, start) =>{
 
-                        let fd,  position = 0,  hdLen = 0, o2oMapSize = 0, extractionsLen = 0, fsize = 0, bytesSent = 0;
+
+
+
+                        const state = (() => {
+
+                            let _state = null;
+
+                            const  reset = () => {
+                                //todo: when state becomes a complex obj use jsonstringify/parse
+                                _state = {
+                                    lastSentChunkPos : 0,
+                                    addReminder : null,
+                                    nextBuffer : null
+                                }
+                            }
+
+                            return {
+
+                                setLastSentChunk : (num) => {
+                                    !state && reset();
+                                    _state.lastSentChunkPos = num;
+                                },
+
+                                setNextBuffer : (buffer) =>{
+                                   !state && reset();
+                                   _state.nextBuffer = BufferUtil.fromOrSlice(buffer);
+                                },
+
+                                setAddReminder : (buffer, pos = 0) => {
+                                    !state && reset();
+                                    _state.addReminder = BufferUtil.fromOrSlice(buffer, pos);
+                                },
+
+                                resetState : () => {
+                                     reset();
+                                },
+
+
+
+                                get : (forceReset) => {
+                                     (forceReset || !_state) && reset();
+                                     return _state;
+                                },
+
+                                getNextBuffer : (deleteBuf = false) =>  {
+                                    !state && reset();
+                                    if(!deleteBuf){
+                                        return _state.nextBuffer;
+                                    }
+
+                                    let temp = _state.nextBuffer ;
+                                    _state.nextBuffer = null;
+                                    return temp;
+                                },
+
+                                getAddReminder : (deleteReminder = false) => {
+                                    !state && reset();
+                                    if(!deleteReminder){
+                                        return _state.addReminder;
+                                    }
+
+                                    let temp = _state.addReminder ;
+                                    _state.addReminder = null;
+                                    return temp;
+                                },
+
+                                getLastSentChunkPos: (deleteLastSentChunkPos = false ) => {
+                                    !_state && reset();
+                                    if(!deleteLastSentChunkPos){
+                                        return _state.lastSentChunkPos;
+                                    }
+
+                                    let temp = _state.lastSentChunkPos;
+                                    _state.lastSentChunkPos = 0;
+                                    return temp;
+                                }
+
+
+                            }
+
+                        })()
+
+
+
+
+
+
+                            let fd, sent = false,
+                            position = 0,  hdLen = 0, o2oMapSize = 0,
+                            extractionsLen = 0, fsize = 0, bytesSent = 0;
+
+
+
+
+
                         async.series({
                               openAsync :(callback) => {
                                 fs.open(path,'r', (err, descriptor) =>{
@@ -270,18 +318,18 @@ class Streamer{
                                   //todo
                                   const fake = { stop : false };
 
-                                  async.until( () => { return testExecStatus(fake, position, end) },
+                                  async.until( () => { return testExecStatus(fake, sent, position, end) },
 
                                       (done)   =>  {
-                                      console.info("done :: " + done);
+                                    //  console.info("done :: " + done);
                                             rsSvfChunksAsync(ws._socket._sockname, fd, position, (err, buffers) => {
-                                                console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers + " err:: " + err);
+                                            //    console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers + " err:: " + err);
                                               if(err) {return callback(err);}
                                               if( ! buffers || !buffers.length ){ return callback('Failed to get svf chuncks!')}
 
-                                              for( let i = 0; i < buffers.length; i ++) {
+                                              for( let i = 0; i < !sent && buffers.length; i ++) {
                                                   let curBufferPos = 0;
-                                                  while (buffers[i] && curBufferPos < buffers[i].length) {
+                                                  while (!sent && buffers[i] && curBufferPos < buffers[i].length) {
 
                                                       const reminder = wsBuffer.length - wsBufferPos;
                                                       const dif = buffers[i].length - reminder;
@@ -293,17 +341,34 @@ class Streamer{
                                                       curBufferPos += copyLen;
 
                                                       if (wsBufferPos == length) {
-                                                          ws.send(wsBuffer);
+
+                                                       if(!state.getLastSentChunkPos())
+                                                       {
+                                                           ws.send(wsBuffer);
+                                                           //console.log("sent buffer")
+                                                       }
+                                                       else
+                                                       {
+                                                           state.setNextBuffer(wsBuffer);
+                                                          // console.log("state.nextBuffer set");
+                                                       }
                                                           bytesSent += wsBuffer.length;
                                                           //use all the same buffer to
-                                                          //  wsBuffer = Buffer.getBuffer(length);
+                                                          wsBuffer = BufferUtil.getBuffer(length);
                                                           wsBufferPos = 0;
+                                                          sent = true;
+                                                          state.setLastSentChunk( i != 1 ? position : (position + curBufferPos));
+
+
+                                                          if(buffers[2] && (i < 2 || curBufferPos < buffers[2].length)){
+                                                              state.setAddReminder(buffers[2], i == 2 ? curBufferPos : 0);
+                                                          }
                                                       }
 
-                                                      ( i < buffers.length - 1) && (position += buffers[i].length);
+                                                      (i == 1) && (position += buffers[i].length);
                                                   }
                                               }
-
+                                             // console.info("almost done")
                                               done();
                                           })
                                       ,
@@ -311,7 +376,12 @@ class Streamer{
                                               (err) => {
                                                   return callback(err);
 
-                                                  wsBufferPos && ws.send( wsBuffer.slice(0,wsBufferPos));
+                                                  //send reminder
+                                                  if((position => fsize) && wsBufferPos){
+                                                      ws.send( wsBuffer.slice(0,wsBufferPos));
+                                                      state.resetState();
+                                                  }
+
                                                   callback();
                                               }
                                       }
@@ -325,10 +395,9 @@ class Streamer{
                               }
 
                          }, (err, results) =>{
-                            console.info("end of async series err: " + err + " result :: " + results);
-                              if (err ){
 
-                                  log(start, wsMessage, err, fsize );
+                              log(start, wsMessage, err);
+                              if (err ){
                                   sendErrCode(ws, ERR_CODES.ERR_JUST_FUCKED_UP);
                               }
                             }

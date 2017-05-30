@@ -39,6 +39,10 @@ const readFileBufAsync = (fd, position, length, offset, callback ) => {
     })
 }
 
+const fromOrSlice = (buffer, pos = 0) => {
+    return pos > 0 ? buffer.slice(pos) : Buffer.from(buffer);
+}
+
 const readFileNumAsync = (fd, position, length,  offset, mode, callback ) => {
 
     const buffer = getBuffer(length, offset);
@@ -58,6 +62,7 @@ const readFileNumAsync = (fd, position, length,  offset, mode, callback ) => {
 
 
 module.exports = {
+    fromOrSlice,
     getBuffer,
     readFileBufAsync,
     readFileNumAsync,
