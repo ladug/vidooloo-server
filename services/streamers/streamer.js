@@ -33,6 +33,7 @@ class Streamer{
                         console.info('O2O map len: '+ stats.o2o + ' bytes');
                         console.info('Extractions len ' + stats.extr + ' bytes');
                         console.info('Bytes sent to client: ' + stats.sent );
+                        console.info('Bytes stored for next socket: ' + stats.stored);
                     }
                     errs && console.info('Errors: ' + errs);
                     console.log('====================================================');
@@ -64,9 +65,9 @@ class Streamer{
                     callback(null, forNowBuffer );
                 }
 
-                const testExecStatus = (ws, sent, cur, end ) => {
+                const testExecStatus = (ws, ready, cur, end ) => {
                     //atm ws.stop aka singal blablabla
-                   return ws.stop || sent || (end <= cur)
+                   return ws.stop || ready || (end <= cur)
                 }
 
 
@@ -125,7 +126,7 @@ class Streamer{
                 }
 
                 const sendDataAsync = (ws, path, length, pvfOffset, wsMessage, start) =>{
-
+                     console.info("param => length :: " + length)
 
 
 
@@ -201,6 +202,12 @@ class Streamer{
                                     let temp = _state.lastSentChunkPos;
                                     _state.lastSentChunkPos = 0;
                                     return temp;
+                                },
+
+                                isNextBufferReady: () =>{
+                                    !_state && reset();
+
+                                    return _state.nextBuffer && _state.nextBuffer.length > 0;
                                 }
 
 
@@ -213,9 +220,9 @@ class Streamer{
 
 
 
-                            let fd, sent = false,
+                            let fd,
                             position = 0,  hdLen = 0, o2oMapSize = 0,
-                            extractionsLen = 0, fsize = 0, bytesSent = 0;
+                            extractionsLen = 0, fsize = 0, bytesSent = 0, bytesStored = 0;
 
 
 
@@ -318,18 +325,26 @@ class Streamer{
                                   //todo
                                   const fake = { stop : false };
 
-                                  async.until( () => { return testExecStatus(fake, sent, position, end) },
+                                  async.until( () => {
+                                         let res =  testExecStatus(fake, state.isNextBufferReady(), position, end);
+                                         return res;
+                                      },
 
-                                      (done)   =>  {
-                                    //  console.info("done :: " + done);
-                                            rsSvfChunksAsync(ws._socket._sockname, fd, position, (err, buffers) => {
-                                            //    console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers + " err:: " + err);
-                                              if(err) {return callback(err);}
-                                              if( ! buffers || !buffers.length ){ return callback('Failed to get svf chuncks!')}
+                                      (done)   => {
+                                          //  console.info("done :: " + done);
+                                          rsSvfChunksAsync(ws._socket._sockname, fd, position, (err, buffers) => {
+                                              //    console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers + " err:: " + err);
+                                              if (err) {
+                                                  return callback(err);
+                                              }
+                                              if (!buffers || !buffers.length) {
+                                                  return callback('Failed to get svf chuncks!')
+                                              }
 
-                                              for( let i = 0; i < !sent && buffers.length; i ++) {
+                                              for (let i = 0; !testExecStatus(fake, state.isNextBufferReady(), position, end) &&
+                                              i < buffers.length; i++) {
                                                   let curBufferPos = 0;
-                                                  while (!sent && buffers[i] && curBufferPos < buffers[i].length) {
+                                                  while (!testExecStatus(fake, state.isNextBufferReady(), position, end) && buffers[i] && curBufferPos < buffers[i].length) {
 
                                                       const reminder = wsBuffer.length - wsBufferPos;
                                                       const dif = buffers[i].length - reminder;
@@ -342,39 +357,42 @@ class Streamer{
 
                                                       if (wsBufferPos == length) {
 
-                                                       if(!state.getLastSentChunkPos())
-                                                       {
-                                                           ws.send(wsBuffer);
-                                                           //console.log("sent buffer")
-                                                       }
-                                                       else
-                                                       {
-                                                           state.setNextBuffer(wsBuffer);
-                                                          // console.log("state.nextBuffer set");
-                                                       }
-                                                          bytesSent += wsBuffer.length;
+                                                          if (!state.getLastSentChunkPos()) {
+                                                              ws.send(wsBuffer);
+                                                              bytesSent += wsBuffer.length;
+                                                              //console.log("sent buffer")
+                                                          }
+                                                          else {
+                                                              state.setNextBuffer(wsBuffer);
+                                                              bytesStored += wsBuffer.length;
+                                                              // console.log("state.nextBuffer set");
+                                                          }
+
                                                           //use all the same buffer to
                                                           wsBuffer = BufferUtil.getBuffer(length);
                                                           wsBufferPos = 0;
-                                                          sent = true;
-                                                          state.setLastSentChunk( i != 1 ? position : (position + curBufferPos));
+
+                                                          state.setLastSentChunk(i != 1 ? position : (position + curBufferPos));
 
 
-                                                          if(buffers[2] && (i < 2 || curBufferPos < buffers[2].length)){
-                                                              state.setAddReminder(buffers[2], i == 2 ? curBufferPos : 0);
-                                                          }
+                                                          // if(buffers[2] && (i < 2 || curBufferPos < buffers[2].length)){
+                                                          //     state.setAddReminder(buffers[2], i == 2 ? curBufferPos : 0);
+                                                          // }
                                                       }
 
                                                       (i == 1) && (position += buffers[i].length);
                                                   }
                                               }
-                                             // console.info("almost done")
+
+                                              // console.info("almost done")
                                               done();
-                                          })
+                                          });
+                                      }
+
                                       ,
 
                                               (err) => {
-                                                  return callback(err);
+                                                 if( err )  return callback(err);
 
                                                   //send reminder
                                                   if((position => fsize) && wsBufferPos){
@@ -384,13 +402,13 @@ class Streamer{
 
                                                   callback();
                                               }
-                                      }
+
 
                                   )
 
                               },
                               logProcces: (callback) => {
-                                  log(start, wsMessage, null, {len : fsize, hdr: hdLen, o2o: o2oMapSize, extr: extractionsLen, sent: bytesSent});
+                                  log(start, wsMessage, null, {len : fsize, hdr: hdLen, o2o: o2oMapSize, extr: extractionsLen, sent: bytesSent, stored: bytesStored});
                                   callback();
                               }
 
