@@ -3,7 +3,8 @@ const fs = require('fs'),
       async = require('async'),
       BufferUtil = require('./bufferUtils'),
       uid = require('uid-safe'),
-      shallowClone =  require('util')._extend;
+      shallowClone =  require('util')._extend //todo remove
+
 
 
 
@@ -57,11 +58,11 @@ class Streamer{
 
 
 
-
+                //todo: debug mode
                 const getAddBuffer = (id, callback) => {
                     //itai.GiveMeBufferForWsId( id, (err, res) =>
                     // { if(err) return (callback(err)) callback(null, addBuffer); });
-                    const forNowBuffer = BufferUtil.getBuffer(5000, 0)
+                    const forNowBuffer =  null;   //BufferUtil.getBuffer(5000, 0)
                     callback(null, forNowBuffer );
                 }
 
@@ -83,7 +84,7 @@ class Streamer{
                                 if(err){ return (mycallback(err))}
                                 addBuffer = buffer;
                                 addLenBuffer = BufferUtil.getUint24AsBuffer((addBuffer && addBuffer.length) || 0);
-                                console.log('chunks => tryToGetAddAsync');
+                               // console.log('chunks => tryToGetAddAsync');
                                 mycallback();
                             });
 
@@ -94,9 +95,10 @@ class Streamer{
                             BufferUtil.readFileNumAsync(fd, position, dataLen,
                                 curOffset, BufferUtil.NumReadModes.UInt16BE, (err, num) =>{
                                 if(err){return mycallback(err);}
+                               // console.log("num :: " + num);
                                 svfChunkSize = num;
                                 position += dataLen;
-                                console.log('chunks => readSvfChunkLengthAsync');
+                               // console.log('chunks => readSvfChunkLengthAsync');
                                     mycallback();
                             });
                         },
@@ -106,7 +108,7 @@ class Streamer{
                             BufferUtil.readFileBufAsync(fd, position, len, curOffset, (err, buffer) => {
                                 if(err){return mycallback(err);}
                                 svfBuffer = buffer;
-                                console.log('chunks => readSvfChunkAsync');
+                                //console.log('chunks => readSvfChunkAsync');
                                 mycallback();
                             })
                         }
@@ -118,6 +120,7 @@ class Streamer{
                             return (callback(err));
                         }
                         let res = new Array();
+
                         res.push(addLenBuffer)
                         res.push(svfBuffer);
                         addBuffer && res.push(addBuffer);
@@ -126,7 +129,7 @@ class Streamer{
                 }
 
                 const sendDataAsync = (ws, path, length, pvfOffset, wsMessage, start) =>{
-                     console.info("param => length :: " + length)
+                   //  console.info("param => length :: " + length)
 
 
 
@@ -225,6 +228,8 @@ class Streamer{
                             extractionsLen = 0, fsize = 0, bytesSent = 0, bytesStored = 0;
 
 
+                            //todo debug vars
+                           // const   fileWriteStream = fs.createWriteStream(path.replace(".svf", ".avf"));
 
 
 
@@ -234,7 +239,7 @@ class Streamer{
                                     if(err){ return callback(err);}
 
                                     fd = descriptor;
-                                    console.log('openAsync')
+                                   // console.log('openAsync')
                                     callback();
                                 })
                               },
@@ -243,7 +248,7 @@ class Streamer{
                                       if(err){ return callback(err);}
 
                                       fsize = stat.size;
-                                      console.log('reading stats')
+                                    //  console.log('reading stats')
                                       callback();
                                   })
                               },
@@ -261,7 +266,7 @@ class Streamer{
                                           //if pvfOffset == 0, then add hdLen after
                                           //sending client headers, otherwise do it here
                                           pvfOffset && (position += hdLen);
-                                           console.log('readClientHeadersLenAsync') ;
+                                         //  console.log('readClientHeadersLenAsync') ;
                                           callback();
                                       })
                               },
@@ -274,13 +279,18 @@ class Streamer{
                                           if(err){return callback(err);}
 
                                           ws.send(buffer);
+
+                                          //todo debug
+                                          //fileWriteStream.write(buffer);
+
+
                                           position += hdLen;
                                           bytesSent += buffer.length;
-                                          console.log('readClientHeadersLenAsync => no pvfOffset') ;
+                                          //console.log('readClientHeadersLenAsync => no pvfOffset') ;
                                           callback();
                                       })
                                   }else{
-                                      console.log('readClientHeadersLenAsync => yes pvfOffset') ;
+                                    //  console.log('readClientHeadersLenAsync => yes pvfOffset') ;
                                       callback()
                                   }
                               },
@@ -294,15 +304,15 @@ class Streamer{
 
                                       //if pvfOffset is not defined, then no need to calc pos in chuncks
                                       pvfOffset || (position += o2oMapSize);
-                                      console.log('readO2OMapSizeAsync') ;
+                                     // console.log('readO2OMapSizeAsync') ;
                                       callback();
                                   })
                               },
                               setSvfOffset : (callback) => {
                                   if(pvfOffset){
-                                       console.log('oops forgot to calc svfOffset .... mmmm');
+                                    //   console.log('oops forgot to calc svfOffset .... mmmm');
                                   }else{
-                                      console.log('setSvfOffset, but pvfOffset = 0');
+                                    //  console.log('setSvfOffset, but pvfOffset = 0');
                                       callback();
                                   }
                               },
@@ -313,7 +323,7 @@ class Streamer{
                                       if(err){return callback(err);}
                                       extractionsLen =  num;
                                       position += dataLen;
-                                      console.log('readExtractionsLen');
+                                     // console.log('readExtractionsLen');
                                       callback();
                                   });
                               },
@@ -359,6 +369,10 @@ class Streamer{
 
                                                           if (!state.getLastSentChunkPos()) {
                                                               ws.send(wsBuffer);
+
+                                                              //todo debug
+                                                              //fileWriteStream.write(wsBuffer);
+
                                                               bytesSent += wsBuffer.length;
                                                               //console.log("sent buffer")
                                                           }
@@ -379,7 +393,7 @@ class Streamer{
                                                           //     state.setAddReminder(buffers[2], i == 2 ? curBufferPos : 0);
                                                           // }
                                                       }
-
+                                                      (i == 0) && (position += 3);
                                                       (i == 1) && (position += buffers[i].length);
                                                   }
                                               }
@@ -393,6 +407,7 @@ class Streamer{
 
                                               (err) => {
                                                  if( err )  return callback(err);
+                                                // fileWriteStream.end();
 
                                                   //send reminder
                                                   if((position => fsize) && wsBufferPos){
