@@ -16,10 +16,10 @@
         testWebSocket();
     }
 
-    function getData(){
+    function getData(offset){
 
        return {
-           pvfOffset:0,
+           pvfOffset:offset,
            portion: 2048,
            file : "u"
        }
@@ -88,7 +88,7 @@
 </script>
 
 <h2>WebSocket Test</h2>
-<button onClick=" doSend(getData());">Send Data</button>
+<button onClick=" doSend(getData(null));">Send Data</button>
 <button onClick =" websocket.close();">Close connection</button>
 
 <div id="output"></div>

@@ -3,8 +3,7 @@ const fs = require('fs'),
       async = require('async'),
       BufferUtil = require('./bufferUtils'),
       uid = require('uid-safe'),
-      shallowClone =  require('util')._extend //todo remove
-
+      State = require('./state');
 
 
 
@@ -22,7 +21,12 @@ class Streamer{
 
          this.server.on('connection', function connection(ws, req) {
              ws._socket._sockname = uid.sync(18);
-            ws.on('message', function incoming(wsMessage) {
+
+
+            const state = new State();
+
+
+             ws.on('message', function incoming(wsMessage) {
 
                 const log = (start, wsMessage, errs, stats) =>{
                     console.log('====================================================');
@@ -133,96 +137,6 @@ class Streamer{
 
 
 
-                        const state = (() => {
-
-                            let _state = null;
-
-                            const  reset = () => {
-                                //todo: when state becomes a complex obj use jsonstringify/parse
-                                _state = {
-                                    lastSentChunkPos : 0,
-                                    addReminder : null,
-                                    nextBuffer : null
-                                }
-                            }
-
-                            return {
-
-                                setLastSentChunk : (num) => {
-                                    !state && reset();
-                                    _state.lastSentChunkPos = num;
-                                },
-
-                                setNextBuffer : (buffer) =>{
-                                   !state && reset();
-                                   _state.nextBuffer = BufferUtil.fromOrSlice(buffer);
-                                },
-
-                                setAddReminder : (buffer, pos = 0) => {
-                                    !state && reset();
-                                    _state.addReminder = BufferUtil.fromOrSlice(buffer, pos);
-                                },
-
-                                resetState : () => {
-                                     reset();
-                                },
-
-
-
-                                get : (forceReset) => {
-                                     (forceReset || !_state) && reset();
-                                     return _state;
-                                },
-
-                                getNextBuffer : (deleteBuf = false) =>  {
-                                    !state && reset();
-                                    if(!deleteBuf){
-                                        return _state.nextBuffer;
-                                    }
-
-                                    let temp = _state.nextBuffer ;
-                                    _state.nextBuffer = null;
-                                    return temp;
-                                },
-
-                                getAddReminder : (deleteReminder = false) => {
-                                    !state && reset();
-                                    if(!deleteReminder){
-                                        return _state.addReminder;
-                                    }
-
-                                    let temp = _state.addReminder ;
-                                    _state.addReminder = null;
-                                    return temp;
-                                },
-
-                                getLastSentChunkPos: (deleteLastSentChunkPos = false ) => {
-                                    !_state && reset();
-                                    if(!deleteLastSentChunkPos){
-                                        return _state.lastSentChunkPos;
-                                    }
-
-                                    let temp = _state.lastSentChunkPos;
-                                    _state.lastSentChunkPos = 0;
-                                    return temp;
-                                },
-
-                                isNextBufferReady: () =>{
-                                    !_state && reset();
-
-                                    return _state.nextBuffer && _state.nextBuffer.length > 0;
-                                }
-
-
-                            }
-
-                        })()
-
-
-
-
-
-
                             let fd,
                             position = 0,  hdLen = 0, o2oMapSize = 0,
                             extractionsLen = 0, fsize = 0, bytesSent = 0, bytesStored = 0;
@@ -230,6 +144,13 @@ class Streamer{
 
                             //todo debug vars
                            // const   fileWriteStream = fs.createWriteStream(path.replace(".svf", ".avf"));
+
+                      if(pvfOffset == null && state.isBufferReady)
+                      {
+                          ws.send( state.next);
+                          state.next = null;
+                          position = state.pos;
+                      }
 
 
 
@@ -336,7 +257,7 @@ class Streamer{
                                   const fake = { stop : false };
 
                                   async.until( () => {
-                                         let res =  testExecStatus(fake, state.isNextBufferReady(), position, end);
+                                         let res =  testExecStatus(fake, state.isBufferReady, position, end);
                                          return res;
                                       },
 
@@ -351,10 +272,10 @@ class Streamer{
                                                   return callback('Failed to get svf chuncks!')
                                               }
 
-                                              for (let i = 0; !testExecStatus(fake, state.isNextBufferReady(), position, end) &&
+                                              for (let i = 0; !testExecStatus(fake, state.isBufferReady, position, end) &&
                                               i < buffers.length; i++) {
                                                   let curBufferPos = 0;
-                                                  while (!testExecStatus(fake, state.isNextBufferReady(), position, end) && buffers[i] && curBufferPos < buffers[i].length) {
+                                                  while (!testExecStatus(fake, state.isBufferReady, position, end) && buffers[i] && curBufferPos < buffers[i].length) {
 
                                                       const reminder = wsBuffer.length - wsBufferPos;
                                                       const dif = buffers[i].length - reminder;
@@ -367,7 +288,7 @@ class Streamer{
 
                                                       if (wsBufferPos == length) {
 
-                                                          if (!state.getLastSentChunkPos()) {
+                                                          if (state.pos == 0) {
                                                               ws.send(wsBuffer);
 
                                                               //todo debug
@@ -377,7 +298,7 @@ class Streamer{
                                                               //console.log("sent buffer")
                                                           }
                                                           else {
-                                                              state.setNextBuffer(wsBuffer);
+                                                              state.next = wsBuffer;
                                                               bytesStored += wsBuffer.length;
                                                               // console.log("state.nextBuffer set");
                                                           }
@@ -386,7 +307,7 @@ class Streamer{
                                                           wsBuffer = BufferUtil.getBuffer(length);
                                                           wsBufferPos = 0;
 
-                                                          state.setLastSentChunk(i != 1 ? position : (position + curBufferPos));
+                                                          state.pos = (i != 1 ? position : (position + curBufferPos));
 
 
                                                           // if(buffers[2] && (i < 2 || curBufferPos < buffers[2].length)){
@@ -412,7 +333,7 @@ class Streamer{
                                                   //send reminder
                                                   if((position => fsize) && wsBufferPos){
                                                       ws.send( wsBuffer.slice(0,wsBufferPos));
-                                                      state.resetState();
+                                                      state.reset();// need it?
                                                   }
 
                                                   callback();
@@ -449,7 +370,7 @@ class Streamer{
 
                 const start = (new Date()).getTime(),
                     messageObj = JSON.parse(wsMessage),
-                    pvfOffset = (messageObj && messageObj.pvfOffset) || 0,
+                    pvfOffset = messageObj && messageObj.pvfOffset || null,
                     portion = (messageObj && messageObj.portion) || 1024,
                     path = './files/svf/' + messageObj.file + '.svf',
                     fileExists = fs.existsSync(path);
