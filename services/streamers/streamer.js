@@ -2,8 +2,9 @@ const fs = require('fs'),
       bytesStream = require('../mp4-analizer/BytesStream'),
       async = require('async'),
       BufferUtil = require('./bufferUtils'),
-      uid = require('uid-safe'),
-      State = require('./state');
+      State = require('./state'),
+      SKCommand = require('./socketCommand'),
+      Stat = require('./execStat');
 
 
 
@@ -369,11 +370,12 @@ class Streamer{
                 }
 
                 const start = (new Date()).getTime(),
-                    messageObj = JSON.parse(wsMessage),
+                      command = new SKCommand(wsMessage);
+                   /* messageObj = JSON.parse(wsMessage),
                     pvfOffset = messageObj && messageObj.pvfOffset || null,
                     portion = (messageObj && messageObj.portion) || 1024,
                     path = './files/svf/' + messageObj.file + '.svf',
-                    fileExists = fs.existsSync(path);
+                    fileExists = fs.existsSync(path);*/
 
                 let  msg ='';
 

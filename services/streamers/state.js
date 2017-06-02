@@ -1,58 +1,97 @@
 /**
  * Created by volodya on 6/1/2017.
  */
+const uid = require('uid-safe');
 
 class State {
     constructor(){
-        this.position = 0;
-        this.addReminder = null;
-        this.buffer = null;
+        this._uid = uid.sync(18);
+        this._position = 0;
+        this._addReminder = null;
+        this._chunkBuffer = null;
 
         //------------------------
-        this.path = null;
-        this.hdLength = 0;
-        this.o2omapSize = 0;
-        this.extraxtionsLen = 0;
+        this._filePath = null;
+        this._headersLength = 0;
+        this._o2omapSize = 0;
+        this._extractionsLen = 0;
         //-------------------------
 
     }
 
     //getters-----------------------
-    get next(){
-        return  this.buffer;
+    get serverSocketId () {
+        return this._uid;
+    }
+    get path() {
+        return this._filePath;
     }
 
+    get hdLen() {
+        return this._headersLength;
+    }
+
+    get buffer(){
+        return  this._chunkBuffer;
+    }
+
+
     get isBufferReady() {
-        return this.buffer != null && this.buffer.length > 0;
+        return this._chunkBuffer != null && this.chunkBuffer.length > 0;
     }
 
     get pos() {
-        return this.position;
+        return this._position;
     }
 
     get add() {
-        return this.addReminder;
+        return this._addReminder;
     }
 
+    get mapLen(){
+        return this._o2omapSize;
+    }
 
+    get chunksTotalLen(){
+        return this._extractionsLen;
+    }
     //setters---------------------------
 
-    set next(data){
-        this.buffer = data;
+    set buffer(data){
+        this._chunkBuffer = data;
     }
 
     set add(data){
-        this.addReminder = data;
+        this._addReminder = data;
     }
 
     set pos(data){
-        this.position = data;
+        this._position = data;
     }
 
-    reset(){
-        this.buffer = null;
-        this.addReminder = null;
-        this.position = 0;
+    set hdLen(data){
+         this._headersLength = data;
+    }
+
+    set mapLen(data){
+        this._o2omapSize = data;
+    }
+
+    set chunksTotalLen(data){
+        this._extractionsLen = data;
+    }
+
+    reset(deletePath = true){
+        this._chunkBuffer = null;
+        this._addReminder = null;
+        this._position = 0;
+        this._headersLength = 0;
+        this._o2omapSize = 0;
+        this._extractionsLen = 0;
+
+        if (deletePath) {
+            this._filePath = null;
+        }
     }
 }
 
