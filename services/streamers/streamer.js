@@ -138,7 +138,7 @@ class Streamer{
 
                         async.series({
                               openAsync :(callback) => {
-                                fs.open(path,'r', (err, descriptor) =>{
+                                fs.open(state.path,'r', (err, descriptor) =>{
                                     if(err){ return callback(err);}
 
                                     fd = descriptor;
@@ -230,7 +230,7 @@ class Streamer{
                                       callback()
                                   }else {
                                       const dataLen = 4, curOffset = 0;
-                                      BufferUtil.readFileNumAsync(fd, position, dataLen,
+                                      BufferUtil.readFileNumAsync(fd, state.pos, dataLen,
                                           curOffset, BufferUtil.NumReadModes.UInt32BE, (err, num) => {
                                               if (err) {
                                                   return callback(err);
@@ -243,7 +243,7 @@ class Streamer{
                                   }
                               },
                              rsChunksAsync: (callback) => {
-                                  let wsBuffer = BufferUtil.getBuffer(length),
+                                  let wsBuffer = BufferUtil.getBuffer(command.portion),
                                       wsBufferPos = 0,
                                       end = state.pos + state.chunksTotalLen;
 
@@ -282,9 +282,9 @@ class Streamer{
 
                                                       if (wsBufferPos == command.portion) {
 
-                                                          if (state.mustSendBuf) {
+                                                          if (state.isToSendBuf) {
                                                               ws.send(wsBuffer);
-                                                              state.mustSendBuf = false;
+                                                              state.isToSendBuf = false;
                                                               //todo debug
                                                               //fileWriteStream.write(wsBuffer);
 
@@ -297,11 +297,11 @@ class Streamer{
                                                           }
 
                                                           //use all the same buffer to
-                                                          wsBuffer = BufferUtil.getBuffer(length);
+                                                          wsBuffer = BufferUtil.getBuffer(command.portion);
                                                           wsBufferPos = 0;
 
-                                                          state.pos = (i != 1 ? position : (position + curBufferPos));
 
+                                                          (i != 1) && state.incrementPos(curBufferPos);
 
                                                           // if(buffers[2] && (i < 2 || curBufferPos < buffers[2].length)){
                                                           //     state.setAddReminder(buffers[2], i == 2 ? curBufferPos : 0);

@@ -25,7 +25,7 @@ class State {
 
     //getters-----------------------
 
-    get mustSentBuf () {
+    get isToSendBuf () {
         return this._forceSendBuf;
     }
     get serverSocketId () {
@@ -85,7 +85,9 @@ class State {
         return this._position >= this._fileSize;
     }
     //setters---------------------------
-
+    set fSize (data){
+        this._fileSize = data;
+    }
     set buffer(data){
         this._chunkBuffer = data;
     }
@@ -120,7 +122,7 @@ class State {
         this._extractionsLen = data;
     }
 
-    set mustSendBuf (val){
+    set isToSendBuf (val){
         this._forceSendBuf = val;
     }
 
