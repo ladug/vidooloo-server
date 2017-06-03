@@ -89,7 +89,7 @@ class State {
     }
 
     get isEOF(){
-        return this._position >= this._fileSize;
+        return this._position > 0 && this._position >= this._fileSize;
     }
     //setters---------------------------
     set isHeaderSent(val){
