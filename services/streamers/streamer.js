@@ -147,105 +147,117 @@ class Streamer{
                                 })
                               },
                               getFileStatsAsync: (callback) =>{
-                                  fs.fstat( fd, (err, curStat) => {
-                                      if(err){ return callback(err);}
-                                      stat.size = curStat.size;
-                                    //  console.log('reading stats')
+                                  if(state.fSize > 0){
                                       callback();
-                                  })
+                                  }else {
+                                      fs.fstat(fd, (err, curStat) => {
+                                          if (err) {
+                                              return callback(err);
+                                          }
+                                          state.fSize = curStat.size;
+                                          //  console.log('reading stats')
+                                          callback();
+                                      });
+                                  }
                               },
                               readClientHeadersLenAsync: (callback) => {
-
-                                      const dataLen = 3, curOffset = 1;
-                                      BufferUtil.readFileNumAsync( fd, state.pos, dataLen, curOffset,
-                                          BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
-
-                                          if(err){return callback(err);}
-
-                                          state.pos += dataLen;
-
-                                          state.hdLen =  num;
-
-                                          //if pvfOffset == 0, then add hdLen after
-                                          //sending client headers, otherwise do it here
-                                          pvfOffset && (position += hdLen);
-                                         //  console.log('readClientHeadersLenAsync') ;
+                                      if(state.hdLen > 0){
                                           callback();
-                                      })
+                                      }
+                                      else{
+                                          //todo: make consts configurable
+                                          const dataLen = 3, curOffset = 1;
+                                          BufferUtil.readFileNumAsync( fd, state.pos, dataLen, curOffset,
+                                              BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
+
+                                                  if(err){return callback(err);}
+
+                                                  state.incrementPos(dataLen);
+
+                                                  state.hdLen =  num;
+                                                  //  console.log('readClientHeadersLenAsync') ;
+                                                  callback();
+                                              })
+                                      }
                               },
                               //rs = read and send
                               rsClientHeadersDataAsync : (callback) => {
 
-                                  //send headers iff pvfOffset not set
-                                  if(!pvfOffset){
-                                      BufferUtil.readFileBufAsync(fd, position, hdLen, 0, (err, buffer) => {
+                                  if(command.pvfOffset == null){
+                                      BufferUtil.readFileBufAsync(fd, state.pos, state.hdLen, 0, (err, buffer) => {
                                           if(err){return callback(err);}
-
                                           ws.send(buffer);
-
                                           //todo debug
                                           //fileWriteStream.write(buffer);
-
-
-                                          position += hdLen;
-                                          bytesSent += buffer.length;
+                                          state.incrementPos(state.hdLen);
+                                          stat.incrementBytesSent(buffer.length);
                                           //console.log('readClientHeadersLenAsync => no pvfOffset') ;
                                           callback();
                                       })
                                   }else{
+                                       state.incrementPos(state.hdLen);
                                     //  console.log('readClientHeadersLenAsync => yes pvfOffset') ;
-                                      callback()
+                                      callback();
                                   }
                               },
                               readO2OMapSizeAsync : (callback) => {
+                                  if(state.mapSize > 0){
+                                      callback();
+                                  }else{
                                   const dataLen = 3, curOffset = 1;
-                                  BufferUtil.readFileNumAsync( fd, position, dataLen,
+                                  BufferUtil.readFileNumAsync( fd, state.pos, dataLen,
                                       curOffset, BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
                                       if(err){return callback(err);}
-                                      o2oMapSize =  num;
-                                      position += dataLen;
+                                      state.mapSize =  num;
+                                      state.incrementPos(dataLen);
 
-                                      //if pvfOffset is not defined, then no need to calc pos in chuncks
-                                      pvfOffset || (position += o2oMapSize);
                                      // console.log('readO2OMapSizeAsync') ;
                                       callback();
                                   })
+                                  }
                               },
                               setSvfOffset : (callback) => {
-                                  if(pvfOffset){
-                                    //   console.log('oops forgot to calc svfOffset .... mmmm');
+                                  if(command.pvfOffset != null){
+                                       console.log('oops forgot to calc svfOffset .... mmmm');
                                   }else{
-                                    //  console.log('setSvfOffset, but pvfOffset = 0');
+                                      //if pvfOffset is not defined, then no need to calc pos in chuncks
+                                      state.incrementPos(state.mapSize);//  console.log('setSvfOffset, but pvfOffset = 0');
                                       callback();
                                   }
                               },
                               readExtractionsLen: (callback) => {
-                                  const dataLen = 4, curOffset = 0;
-                                  BufferUtil.readFileNumAsync( fd, position, dataLen,
-                                      curOffset, BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
-                                      if(err){return callback(err);}
-                                      extractionsLen =  num;
-                                      position += dataLen;
-                                     // console.log('readExtractionsLen');
-                                      callback();
-                                  });
+                                  if(state.chunksTotalLen > 0){
+                                      callback()
+                                  }else {
+                                      const dataLen = 4, curOffset = 0;
+                                      BufferUtil.readFileNumAsync(fd, position, dataLen,
+                                          curOffset, BufferUtil.NumReadModes.UInt32BE, (err, num) => {
+                                              if (err) {
+                                                  return callback(err);
+                                              }
+                                              state.chunksTotalLen = num;
+                                              state.incrementPos(dataLen);
+                                              // console.log('readExtractionsLen');
+                                              callback();
+                                          });
+                                  }
                               },
                              rsChunksAsync: (callback) => {
                                   let wsBuffer = BufferUtil.getBuffer(length),
                                       wsBufferPos = 0,
-                                      end = position + extractionsLen;
+                                      end = state.pos + state.chunksTotalLen;
 
                                   //todo
                                   const fake = { stop : false };
 
                                   async.until( () => {
-                                         let res =  testExecStatus(fake, state.isBufferReady, position, end);
+                                         let res =  testExecStatus(fake, state.isBufferReady, state.pos, end);
                                          return res;
                                       },
 
                                       (done)   => {
                                           //  console.info("done :: " + done);
-                                          rsSvfChunksAsync(ws._socket._sockname, fd, position, (err, buffers) => {
+                                          rsSvfChunksAsync(state.serverSocketId, fd, state.pos, (err, buffers) => {
                                               //    console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers + " err:: " + err);
                                               if (err) {
                                                   return callback(err);
@@ -254,10 +266,10 @@ class Streamer{
                                                   return callback('Failed to get svf chuncks!')
                                               }
 
-                                              for (let i = 0; !testExecStatus(fake, state.isBufferReady, position, end) &&
+                                              for (let i = 0; !testExecStatus(fake, state.isBufferReady, state.pos, end) &&
                                               i < buffers.length; i++) {
                                                   let curBufferPos = 0;
-                                                  while (!testExecStatus(fake, state.isBufferReady, position, end) && buffers[i] && curBufferPos < buffers[i].length) {
+                                                  while (!testExecStatus(fake, state.isBufferReady, state.pos, end) && buffers[i] && curBufferPos < buffers[i].length) {
 
                                                       const reminder = wsBuffer.length - wsBufferPos;
                                                       const dif = buffers[i].length - reminder;
@@ -268,20 +280,19 @@ class Streamer{
                                                       wsBufferPos += copyLen;
                                                       curBufferPos += copyLen;
 
-                                                      if (wsBufferPos == length) {
+                                                      if (wsBufferPos == command.portion) {
 
-                                                          if (state.pos == 0) {
+                                                          if (state.mustSendBuf) {
                                                               ws.send(wsBuffer);
-
+                                                              state.mustSendBuf = false;
                                                               //todo debug
                                                               //fileWriteStream.write(wsBuffer);
 
-                                                              bytesSent += wsBuffer.length;
+                                                              stat.incrementBytesSent(wsBuffer.length);
                                                               //console.log("sent buffer")
                                                           }
                                                           else {
                                                               state.next = wsBuffer;
-                                                              bytesStored += wsBuffer.length;
                                                               // console.log("state.nextBuffer set");
                                                           }
 
@@ -296,8 +307,8 @@ class Streamer{
                                                           //     state.setAddReminder(buffers[2], i == 2 ? curBufferPos : 0);
                                                           // }
                                                       }
-                                                      (i == 0) && (position += 3);
-                                                      (i == 1) && (position += buffers[i].length);
+                                                      (i == 0) && (state.incrementPos(3));
+                                                      (i == 1) && (state.incrementPos (buffers[i].length));
                                                   }
                                               }
 
@@ -313,26 +324,24 @@ class Streamer{
                                                 // fileWriteStream.end();
 
                                                   //send reminder
-                                                  if((position => fsize) && wsBufferPos){
-                                                      ws.send( wsBuffer.slice(0,wsBufferPos));
-                                                      state.reset();// need it?
+                                                  if(state.isEOF && wsBufferPos){
+                                                      const reminder = wsBuffer.slice(0,wsBufferPos);
+                                                      ws.send(reminder);
+                                                      stat.incrementBytesSent(reminder.length);
                                                   }
-
                                                   callback();
                                               }
-
-
                                   )
-
                               }
 
                          }, (err, results) =>{
-
+                             stat.appendStats(state.stats)
 
                               if (err ){
                                   stat.appendErr(err);
                                   sendErrCode(ws, ERR_CODES.ERR_JUST_FUCKED_UP);
                               }
+                              fs.close(fd, (err) => { if(err) {stat.appendErr(err);}});
                               stat.end();
                               console.info(stat.log);
                             }

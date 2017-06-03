@@ -19,11 +19,15 @@ class State {
         this._fileSize = 0;
         //-------------------------
 
+        this._forceSendBuf = true;
+
     }
 
     //getters-----------------------
 
-
+    get mustSentBuf () {
+        return this._forceSendBuf;
+    }
     get serverSocketId () {
         return this._uid;
     }
@@ -60,14 +64,25 @@ class State {
         return this._extractionsLen;
     }
 
+
+
     get stats(){
         return {
             hdLen: this._headersLength,
             fsize : this._fileSize,
             fpath : this._filePath,
             mapSize: this._o2omapSize,
-            chunksTotalLen: this._extractionsLen
+            chunksTotalLen: this._extractionsLen,
+            bytesStored : ! this._chunkBuffer ? 0 : this._chunkBuffer.length
         }
+    }
+
+    get fSize() {
+        return this._fileSize;
+    }
+
+    get isEOF(){
+        return this._position >= this._fileSize;
     }
     //setters---------------------------
 
@@ -105,6 +120,10 @@ class State {
         this._extractionsLen = data;
     }
 
+    set mustSendBuf (val){
+        this._forceSendBuf = val;
+    }
+
     reset(deletePath = true){
         this._chunkBuffer = null;
         this._addReminder = null;
@@ -112,10 +131,15 @@ class State {
         this._headersLength = 0;
         this._o2omapSize = 0;
         this._extractionsLen = 0;
+        this._fileSize = 0;
 
         if (deletePath) {
             this._filePath = null;
         }
+    }
+
+    incrementPos(val){
+        this._position += val;
     }
 }
 
