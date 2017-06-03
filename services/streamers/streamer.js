@@ -61,10 +61,7 @@ class Streamer{
                     callback(null, forNowBuffer );
                 }
 
-                const testExecStatus = (ws, ready, cur, end ) => {
-                    //atm ws.stop aka singal blablabla
-                   return ws.stop || ready || (end <= cur)
-                }
+
 
 
 
@@ -130,8 +127,9 @@ class Streamer{
                     // const   fileWriteStream = fs.createWriteStream(path.replace(".svf", ".avf"));
 
                     if( command.pvfOffset == null && state.isBufferReady){
-                          ws.send(state.next);
-                          state.next = null;
+                          ws.send(state.buffer);
+                          stat.incrementBytesSent(state.buffer.length);
+                          state.buffer = null;
                     }
 
 
@@ -176,6 +174,11 @@ class Streamer{
 
                                                   state.hdLen =  num;
                                                   //  console.log('readClientHeadersLenAsync') ;
+
+                                                  if(command.pvfOffset != null){
+                                                      state.incrementPos(state.hdLen);
+                                                  }
+
                                                   callback();
                                               })
                                       }
@@ -183,7 +186,7 @@ class Streamer{
                               //rs = read and send
                               rsClientHeadersDataAsync : (callback) => {
 
-                                  if(command.pvfOffset == null){
+                                  if(!state.isHeaderSent){
                                       BufferUtil.readFileBufAsync(fd, state.pos, state.hdLen, 0, (err, buffer) => {
                                           if(err){return callback(err);}
                                           ws.send(buffer);
@@ -191,11 +194,11 @@ class Streamer{
                                           //fileWriteStream.write(buffer);
                                           state.incrementPos(state.hdLen);
                                           stat.incrementBytesSent(buffer.length);
-                                          //console.log('readClientHeadersLenAsync => no pvfOffset') ;
+                                          state.isHeaderSent = true;
+                                        //  console.log('readClientHeadersLenAsync => no pvfOffset') ;
                                           callback();
                                       })
                                   }else{
-                                       state.incrementPos(state.hdLen);
                                     //  console.log('readClientHeadersLenAsync => yes pvfOffset') ;
                                       callback();
                                   }
@@ -244,21 +247,20 @@ class Streamer{
                               },
                              rsChunksAsync: (callback) => {
                                   let wsBuffer = BufferUtil.getBuffer(command.portion),
-                                      wsBufferPos = 0,
-                                      end = state.pos + state.chunksTotalLen;
+                                      wsBufferPos = 0;
 
                                   //todo
                                   const fake = { stop : false };
 
                                   async.until( () => {
-                                         let res =  testExecStatus(fake, state.isBufferReady, state.pos, end);
+                                         let res =  state.mustStopRead(fake.stop);
                                          return res;
                                       },
 
                                       (done)   => {
                                           //  console.info("done :: " + done);
                                           rsSvfChunksAsync(state.serverSocketId, fd, state.pos, (err, buffers) => {
-                                              //    console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers + " err:: " + err);
+                                               //  console.info("inside callback of rsSvfChunckAsync buffers :: " + buffers.length + " err:: " + err);
                                               if (err) {
                                                   return callback(err);
                                               }
@@ -266,10 +268,10 @@ class Streamer{
                                                   return callback('Failed to get svf chuncks!')
                                               }
 
-                                              for (let i = 0; !testExecStatus(fake, state.isBufferReady, state.pos, end) &&
+                                              for (let i = 0; !state.mustStopRead(fake.stop) &&
                                               i < buffers.length; i++) {
                                                   let curBufferPos = 0;
-                                                  while (!testExecStatus(fake, state.isBufferReady, state.pos, end) && buffers[i] && curBufferPos < buffers[i].length) {
+                                                  while (!state.mustStopRead(fake.stop) && buffers[i] && curBufferPos < buffers[i].length) {
 
                                                       const reminder = wsBuffer.length - wsBufferPos;
                                                       const dif = buffers[i].length - reminder;
@@ -289,11 +291,11 @@ class Streamer{
                                                               //fileWriteStream.write(wsBuffer);
 
                                                               stat.incrementBytesSent(wsBuffer.length);
-                                                              //console.log("sent buffer")
+                                                             // console.info("sent chunk buffer")
                                                           }
                                                           else {
-                                                              state.next = wsBuffer;
-                                                              // console.log("state.nextBuffer set");
+                                                              state.buffer = wsBuffer;
+                                                               //console.info("state.buffer set");
                                                           }
 
                                                           //use all the same buffer to
@@ -324,10 +326,13 @@ class Streamer{
                                                 // fileWriteStream.end();
 
                                                   //send reminder
-                                                  if(state.isEOF && wsBufferPos){
-                                                      const reminder = wsBuffer.slice(0,wsBufferPos);
-                                                      ws.send(reminder);
-                                                      stat.incrementBytesSent(reminder.length);
+                                                  if( state.isEOF ){
+                                                      stat.isEOF = true;
+                                                      if(wsBuffer) {
+                                                          const reminder = wsBuffer.slice(0, wsBufferPos);
+                                                          ws.send(reminder);
+                                                          stat.incrementBytesSent(reminder.length);
+                                                      }
                                                   }
                                                   callback();
                                               }

@@ -8,6 +8,7 @@ class Stat {
         this._end = null;
         this._err = '';
         this._sent = 0;
+        this._EOFreached = false;
 
 
     }
@@ -31,6 +32,7 @@ class Stat {
             (this._chunksTotalLen ? "Chunks total length: " + this._chunksTotalLen + ' bytes\n\r' : '')  +
             (this._bytesStored ? "Bytes stored: " + this._bytesStored + ' bytes\n\r' : '')  +
             "Bytes sent to client : "  + this._sent + '\n\r' +
+             "EOF is "  + (!this._EOFreached ? "not " : "" ) + "reached\n\r" +
             '====================================================';
     }
 
@@ -53,7 +55,9 @@ class Stat {
         this._sent += val;
     }
 
-
+    set isEOF(val){
+        this._EOFreached = val;
+    }
 
 }
 

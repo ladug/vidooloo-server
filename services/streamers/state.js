@@ -20,10 +20,15 @@ class State {
         //-------------------------
 
         this._forceSendBuf = true;
+        this._isClientHeaderSent = false;
 
     }
 
     //getters-----------------------
+
+    get isHeaderSent(){
+        return this._isClientHeaderSent;
+    }
 
     get isToSendBuf () {
         return this._forceSendBuf;
@@ -45,7 +50,7 @@ class State {
 
 
     get isBufferReady() {
-        return this._chunkBuffer != null && this.chunkBuffer.length > 0;
+        return this._chunkBuffer != null && this._chunkBuffer.length > 0;
     }
 
     get pos() {
@@ -77,6 +82,8 @@ class State {
         }
     }
 
+
+
     get fSize() {
         return this._fileSize;
     }
@@ -85,10 +92,14 @@ class State {
         return this._position >= this._fileSize;
     }
     //setters---------------------------
+    set isHeaderSent(val){
+        this._isClientHeaderSent = val;
+    }
     set fSize (data){
         this._fileSize = data;
     }
     set buffer(data){
+       // console.info("i'm saving a new buff of " + data.length + " bytes");
         this._chunkBuffer = data;
     }
 
@@ -141,7 +152,21 @@ class State {
     }
 
     incrementPos(val){
+       /* console.info('.......................');
+        console.info("pos :: " + this._position);
+        console.info("value :: " + val);*/
         this._position += val;
+       /* console.info("incremented pos :: " + this._position);
+        console.info('.......................');*/
+    }
+
+    mustStopRead(stopSignal) {
+        /*console.info('****************');
+        console.info("stopSignal :: " + stopSignal);
+        console.info("isBufferReady :: " + this.isBufferReady);
+        console.info("isEOF :: " + this.isEOF);
+        console.info('****************');*/
+        return stopSignal || this.isBufferReady || this.isEOF;
     }
 }
 
