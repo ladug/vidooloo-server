@@ -24,7 +24,7 @@ class SKCommand {
 
         if(this._file){
             //todo get from config:
-            this._file = './files/svf/' + this.file + '.svf';
+            this._file = './files/svf/' + this._file + '.svf';
         }
     }
 
@@ -50,7 +50,7 @@ class SKCommand {
 
     get isPathValid(){
         if( !this._file) {return false;}
-        return fs.existsSync(path)
+        return fs.existsSync(this._file)
     }
 }
 

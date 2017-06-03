@@ -9,7 +9,7 @@ const fs = require('fs'),
 
 
 const ERR_CODES = {
-    FILENAME_NOT_SUPPLIED : 1,
+    ERR_FILENAME : 1,
     ERR_OPEN_FILE : 2,
     ERR_JUST_FUCKED_UP: 3
 };
@@ -17,33 +17,23 @@ const ERR_CODES = {
 class Streamer{
     constructor(server){
 
-
+        //todo: should we keep state, command & stats on class level?
+        //atm: used as vars in the scope of connection & messaging events
          this.server = server;
 
-         this.server.on('connection', function connection(ws, req) {
-             ws._socket._sockname = uid.sync(18);
+         this.server.on('connection', (ws, req)  => {
 
 
-            const state = new State();
+
+            let state = new State();
+            ws._socket._sockname = state.serverSocketId;//not really needed
+
+            //let user = new Client(req, state.serverSocketId);
+             // addOnModule.passClientDemand(user);
+
+             ws.on('message', (wsMessage) =>  {
 
 
-             ws.on('message', function incoming(wsMessage) {
-
-                const log = (start, wsMessage, errs, stats) =>{
-                    console.log('====================================================');
-                    console.info('WS message recieved: ' + wsMessage);
-                    console.info("Execution completed in " + ((new Date()).getTime() - start) + " ms");
-                    if(stats) {
-                        console.info('Total svf file size: ' + stats.len + ' bytes.');
-                        console.info('Client headers len:  ' + stats.hdr + ' bytes');
-                        console.info('O2O map len: '+ stats.o2o + ' bytes');
-                        console.info('Extractions len ' + stats.extr + ' bytes');
-                        console.info('Bytes sent to client: ' + stats.sent );
-                        console.info('Bytes stored for next socket: ' + stats.stored);
-                    }
-                    errs && console.info('Errors: ' + errs);
-                    console.log('====================================================');
-                }
 
                 //for test only
                 const readFilePortionsInRam = (ws, path, portion) => {
@@ -133,25 +123,16 @@ class Streamer{
                     });
                 }
 
-                const sendDataAsync = (ws, path, length, pvfOffset, wsMessage, start) =>{
-                   //  console.info("param => length :: " + length)
+                const sendDataAsync = (ws, state, command, stat) =>{
+                   let fd ;
 
+                   //todo debug vars
+                    // const   fileWriteStream = fs.createWriteStream(path.replace(".svf", ".avf"));
 
-
-                            let fd,
-                            position = 0,  hdLen = 0, o2oMapSize = 0,
-                            extractionsLen = 0, fsize = 0, bytesSent = 0, bytesStored = 0;
-
-
-                            //todo debug vars
-                           // const   fileWriteStream = fs.createWriteStream(path.replace(".svf", ".avf"));
-
-                      if(pvfOffset == null && state.isBufferReady)
-                      {
-                          ws.send( state.next);
+                    if( command.pvfOffset == null && state.isBufferReady){
+                          ws.send(state.next);
                           state.next = null;
-                          position = state.pos;
-                      }
+                    }
 
 
 
@@ -166,10 +147,9 @@ class Streamer{
                                 })
                               },
                               getFileStatsAsync: (callback) =>{
-                                  fs.fstat( fd, (err, stat) => {
+                                  fs.fstat( fd, (err, curStat) => {
                                       if(err){ return callback(err);}
-
-                                      fsize = stat.size;
+                                      stat.size = curStat.size;
                                     //  console.log('reading stats')
                                       callback();
                                   })
@@ -177,13 +157,14 @@ class Streamer{
                               readClientHeadersLenAsync: (callback) => {
 
                                       const dataLen = 3, curOffset = 1;
-                                      BufferUtil.readFileNumAsync( fd, position, dataLen, curOffset,
+                                      BufferUtil.readFileNumAsync( fd, state.pos, dataLen, curOffset,
                                           BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
 
                                           if(err){return callback(err);}
 
-                                          position += dataLen;
-                                          hdLen =  num;
+                                          state.pos += dataLen;
+
+                                          state.hdLen =  num;
 
                                           //if pvfOffset == 0, then add hdLen after
                                           //sending client headers, otherwise do it here
@@ -343,18 +324,17 @@ class Streamer{
 
                                   )
 
-                              },
-                              logProcces: (callback) => {
-                                  log(start, wsMessage, null, {len : fsize, hdr: hdLen, o2o: o2oMapSize, extr: extractionsLen, sent: bytesSent, stored: bytesStored});
-                                  callback();
                               }
 
                          }, (err, results) =>{
 
-                              log(start, wsMessage, err);
+
                               if (err ){
+                                  stat.appendErr(err);
                                   sendErrCode(ws, ERR_CODES.ERR_JUST_FUCKED_UP);
                               }
+                              stat.end();
+                              console.info(stat.log);
                             }
 
                         )
@@ -369,30 +349,22 @@ class Streamer{
 
                 }
 
-                const start = (new Date()).getTime(),
-                      command = new SKCommand(wsMessage);
-                   /* messageObj = JSON.parse(wsMessage),
-                    pvfOffset = messageObj && messageObj.pvfOffset || null,
-                    portion = (messageObj && messageObj.portion) || 1024,
-                    path = './files/svf/' + messageObj.file + '.svf',
-                    fileExists = fs.existsSync(path);*/
 
-                let  msg ='';
 
-                if( !fileExists){
-                    sendErrCode(ws, ERR_CODES.FILENAME_NOT_SUPPLIED);
-                }
-                else{
-                    //msg = readFilePortionsInRam(ws, path, portion);
-                    sendDataAsync(ws, path, portion, pvfOffset, wsMessage, start);
+                let command = new SKCommand(wsMessage),
+                    stat = new Stat(wsMessage);
+
+                if(!command.isPathValid){
+                    sendErrCode(ws, ERR_CODES.ERR_FILENAME);
+                    return;
                 }
 
-               // log(start, wsMessage, fileExists, path, msg);
+               state.path = command.path;
 
-
+               sendDataAsync(ws, state, command, stat);
             });
 
-
+             ws.on('error', (errMsg) => { /* todo: */  console.info("Client ERR: " + errMsg)});
         });
 
     }

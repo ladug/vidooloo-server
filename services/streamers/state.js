@@ -10,16 +10,20 @@ class State {
         this._addReminder = null;
         this._chunkBuffer = null;
 
+
         //------------------------
         this._filePath = null;
         this._headersLength = 0;
         this._o2omapSize = 0;
         this._extractionsLen = 0;
+        this._fileSize = 0;
         //-------------------------
 
     }
 
     //getters-----------------------
+
+
     get serverSocketId () {
         return this._uid;
     }
@@ -55,6 +59,16 @@ class State {
     get chunksTotalLen(){
         return this._extractionsLen;
     }
+
+    get stats(){
+        return {
+            hdLen: this._headersLength,
+            fsize : this._fileSize,
+            fpath : this._filePath,
+            mapSize: this._o2omapSize,
+            chunksTotalLen: this._extractionsLen
+        }
+    }
     //setters---------------------------
 
     set buffer(data){
@@ -75,6 +89,16 @@ class State {
 
     set mapLen(data){
         this._o2omapSize = data;
+    }
+
+    set path(data){
+
+        if(!data || data ===  this._filePath) {return}
+        if( this._filePath != null  && this._filePath.length > 0){
+            this.reset();
+        }
+        this._filePath = data;
+
     }
 
     set chunksTotalLen(data){
