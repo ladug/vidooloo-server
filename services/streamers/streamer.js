@@ -12,7 +12,8 @@ const ERR_CODES = {
     ERR_FILENAME : 1,
     ERR_OPEN_FILE : 2,
     ERR_EOF : 3,
-    ERR_JUST_FUCKED_UP: 4,
+    ERR_PVFOFFSET: 4,
+    ERR_JUST_FUCKED_UP: 5,
 
 };
 
@@ -228,6 +229,42 @@ class Streamer{
                               setSvfOffset : (callback) => {
                                   if(command.pvfOffset != null){
                                        console.log('oops forgot to calc svfOffset .... mmmm');
+                                       let curPvfOffset = 0, tempPos = state.hdLen;
+                                       async.until(
+                                           () =>{
+                                                  return  curPvfOffset == command.pvfOffset ||
+                                                      state.isOutOfMap(tempPos) ;
+                                                },
+                                           (done) => {
+                                               BufferUtil.readFileNumAsync(fd, tempPos, 0, NumReadModes.UInt32BE, (err, pvfoffset) => {
+                                                   if(err) {return callback(err); }
+
+                                                   curPvfOffset = pvfoffset;
+
+                                                   done();
+                                               });
+
+
+                                           },
+                                           (err) => {
+                                               if(err){return callback(err);}
+
+                                               if(state.isOutOfMap(tempPos)){
+                                                  return  callback(ERR_CODES.ERR_PVFOFFSET);
+                                               }
+
+                                               BufferUtil.readFileNumAsync(fd,tempPos, 0, NumReadModes.UInt32BE, (err, svfoffset) => {
+                                                   if(err) {return callback(err);}
+
+                                                   state.position = svfoffset;
+
+                                                   callback();
+
+                                               })
+
+
+                                           }
+                                       );
                                   }else{
                                       //if pvfOffset is not defined, then no need to calc pos in chuncks
                                       state.incrementPos(state.mapSize);//  console.log('setSvfOffset, but pvfOffset = 0');

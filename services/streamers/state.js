@@ -168,6 +168,10 @@ class State {
         console.info('****************');*/
         return stopSignal || this.isBufferReady || this.isEOF;
     }
+
+    isOutOfMap(pos){
+        return pos >= (this._headersLength + this._o2omapSize);
+    }
 }
 
 module.exports = State;
