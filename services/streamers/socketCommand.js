@@ -36,6 +36,10 @@ class SKCommand {
         return this._error;
     }
 
+    get pvfOffset(){
+        return this._pvfOffset;
+    }
+
     get svfOffset() {
        return this._svfOffset;
     }
