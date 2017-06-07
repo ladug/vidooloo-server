@@ -108,6 +108,7 @@ class State {
     }
 
     set pos(data){
+        //console.log("setting pos to :: " + data);
         this._position = data;
     }
 

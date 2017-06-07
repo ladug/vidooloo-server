@@ -139,7 +139,7 @@ class Streamer{
                           state.buffer = null;
                     }
                     else if(command.pvfOffset > 0){
-                        console.info("pvfOffset :: " + command.pvfOffset + " , setting buffer to null");
+                      //  console.info("pvfOffset :: " + command.pvfOffset + " , setting buffer to null");
                         state.buffer = null;
                         state.isToSendBuf = true;
                     }
@@ -150,7 +150,7 @@ class Streamer{
                               openAsync :(callback) => {
                                 fs.open(state.path,'r', (err, descriptor) =>{
                                     if(err){
-                                        console.info("err :: openAsync");
+                                       // console.info("err :: openAsync");
                                         return callback(err);
                                     }
 
@@ -165,7 +165,7 @@ class Streamer{
                                   }else {
                                       fs.fstat(fd, (err, curStat) => {
                                           if (err) {
-                                              console.info("err :: getFileStatsAsync");
+                                             // console.info("err :: getFileStatsAsync");
                                               return callback(err);
                                           }
                                           state.fSize = curStat.size;
@@ -185,7 +185,7 @@ class Streamer{
                                               BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
 
                                                   if(err){
-                                                      console.info("err :: readClientHeadersLenAsync");
+                                                     // console.info("err :: readClientHeadersLenAsync");
                                                       return callback(err);
                                                   }
 
@@ -208,7 +208,7 @@ class Streamer{
                                   if(!state.isHeaderSent){
                                       BufferUtil.readFileBufAsync(fd, state.pos, state.hdLen, 0, (err, buffer) => {
                                           if(err){
-                                              console.info("err :: rsClientHeadersDataAsync");
+                                             // console.info("err :: rsClientHeadersDataAsync");
                                               return callback(err);
                                           }
                                           ws.send(buffer);
@@ -233,12 +233,12 @@ class Streamer{
                                   BufferUtil.readFileNumAsync( fd, state.pos, dataLen,
                                       curOffset, BufferUtil.NumReadModes.UInt32BE, (err, num) =>{
                                       if(err){
-                                          console.info("err :: readO2OMapSizeAsync");
+                                        //  console.info("err :: readO2OMapSizeAsync");
                                           return callback(err);
                                       }
                                       state.mapLen =  num;
                                       state.incrementPos(dataLen);
-
+                                      state.incrementPos(state.mapLen);//  console.log('setSvfOffset, but pvfOffset = 0');
                                      // console.log('readO2OMapSizeAsync') ;
                                       callback();
                                   })
@@ -249,7 +249,7 @@ class Streamer{
                                        //console.log('oops forgot to calc svfOffset .... mmmm');
                                        const mapBoxSize = 13;
                                        let curPvfOffset = 0, tempPos = state.hdLen + 6;
-                                      console.info("tempPos :: " + tempPos);
+                                     // console.info("tempPos :: " + tempPos);
                                        async.until(
                                            () =>{
                                                   return  curPvfOffset == command.pvfOffset ||
@@ -259,14 +259,14 @@ class Streamer{
                                                BufferUtil.readFileNumAsync(fd, tempPos, 4,0,
                                                    BufferUtil.NumReadModes.UInt32BE, (err, pvfoffset) => {
                                                    if(err) {
-                                                       console.info("err :: setSvfOffset => reading pvfoffset");
+                                                      // console.info("err :: setSvfOffset => reading pvfoffset");
                                                        return callback(err);
                                                    }
 
                                                    curPvfOffset = pvfoffset;
                                                    tempPos += mapBoxSize;
-                                                   console.info("curPvfOffset :: " + curPvfOffset);
-                                                   console.info("tempPos :: " + tempPos);
+                                                  // console.info("curPvfOffset :: " + curPvfOffset);
+                                                  // console.info("tempPos :: " + tempPos);
 
                                                    done();
                                                });
@@ -275,12 +275,12 @@ class Streamer{
                                            },
                                            (err) => {
                                                if(err){
-                                                   console.info("err :: setSvfOffset => end of until async");
+                                                   //console.info("err :: setSvfOffset => end of until async");
                                                    return callback(err);
                                                }
 
                                                if(state.isOutOfMap(tempPos)){
-                                                   console.info("err :: setSvfOffset => isOutOfMap");
+                                                  // console.info("err :: setSvfOffset => isOutOfMap");
                                                   return  callback(ERR_CODES.ERR_PVFOFFSET);
                                                }
 
@@ -288,12 +288,12 @@ class Streamer{
                                                BufferUtil.readFileNumAsync(fd,tempPos, 4, 0,
                                                    BufferUtil.NumReadModes.UInt32BE, (err, svfoffset) => {
                                                    if(err) {
-                                                       console.info("err :: setSvfOffset => reading svfoffset");
+                                                     //  console.info("err :: setSvfOffset => reading svfoffset");
                                                        return callback(err);
                                                    }
 
                                                    state.position = svfoffset;
-                                                   console.info("setting position to " + svfoffset);
+                                                   //console.info("setting position to " + svfoffset);
                                                    callback();
 
                                                })
@@ -302,8 +302,6 @@ class Streamer{
                                            }
                                        );
                                   }else{
-                                      //if pvfOffset is not defined, then no need to calc pos in chuncks
-                                      state.incrementPos(state.mapLen);//  console.log('setSvfOffset, but pvfOffset = 0');
                                       callback();
                                   }
                               },
@@ -374,23 +372,18 @@ class Streamer{
                                                           }
                                                           else {
                                                               state.buffer = wsBuffer;
-                                                              console.info("state.buffer set");
+                                                             // console.info("state.buffer set");
+                                                              fileWriteStream.write(wsBuffer);
                                                           }
 
                                                           //use all the same buffer to
                                                           wsBuffer = BufferUtil.getBuffer(command.portion);
                                                           wsBufferPos = 0;
-
-
-                                                          (i == 1) && state.incrementPos(curBufferPos);
-
-                                                          // if(buffers[2] && (i < 2 || curBufferPos < buffers[2].length)){
-                                                          //     state.setAddReminder(buffers[2], i == 2 ? curBufferPos : 0);
-                                                          // }
                                                       }
-                                                      (i == 0) && (state.incrementPos(2));
-                                                      (i == 1) && (state.incrementPos (buffers[i].length));
+
                                                   }
+                                                  (i == 0) && (state.incrementPos(2));
+                                                  (i == 1) && (state.incrementPos (buffers[i].length));
                                               }
 
                                               // console.info("almost done")
