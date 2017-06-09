@@ -4,7 +4,10 @@ const fs = require('fs'),
       BufferUtil = require('./bufferUtils'),
       State = require('./state'),
       SKCommand = require('./socketCommand'),
-      Stat = require('./execStat');
+      Stat = require('./execStat'),
+      Settings = require('./config'),
+      uid = require('uid-safe'),
+      Connection = require('./connection');
 
 
 
@@ -17,19 +20,67 @@ const ERR_CODES = {
 
 };
 
+
 class Streamer{
     constructor(server){
 
-        //todo: should we keep state, command & stats on class level?
-        //atm: used as vars in the scope of connection & messaging events
-         this.server = server;
+         if(!server) return;
 
-         this.server.on('connection', (ws, req)  => {
+         //set props ---------------------------
+         this._server = server;
+         this._config = Settings.config;
+         this._ERR_CODES = Settings.ERR_CODES;
+         this._connections = new Object();
+         //funcs--------------------------------
+
+        this._onConnection = (ws, req ) => {
+            let id = uid.sync(18);
+            this._connections[id] = new Connection(this, ws, req, id);
+        };
+
+        this._server.on('connection', this._onConnection);
 
 
 
-            let state = new State();
-            ws._socket._sockname = state.serverSocketId;//not really needed
+
+
+
+
+
+        /* streamer.onWsMessage = (wsMessage) => {
+             console.info("this :: " + this);
+
+             let command = new SKCommand(wsMessage),
+                 stat = new Stat(wsMessage);
+
+             if(!command.isPathValid){
+                 streamer.sendErrCode(ws, streamer.ERR_CODES.ERR_FILENAME);
+                 return;
+             }
+
+             state.path = command.path;
+
+             if(command.svfOffset == null && state.isEOF){
+                 streamer.sendErrCode(ws, streamer.ERR_CODES.ERR_EOF);
+                 return;
+             }
+         };
+
+         streamer.onWsError = (errMessage) => {
+                console.info('errMessage :: ' + errMessage);
+         }*/
+
+          //register server events---------------
+
+
+
+
+        /* streamer.server.on('connection', (ws, req)  => {
+
+
+
+           // let state = new State();
+           // ws._socket._sockname = state.serverSocketId;//not really needed
 
             //let user = new Client(req, state.serverSocketId);
              // addOnModule.passClientDemand(user);
@@ -430,18 +481,18 @@ class Streamer{
 
                 }
 
-                const sendErrCode = (ws, errCode) => {
+               // const sendErrCode = (ws, errCode) => {
 
-                    let res = new Uint8Array(1);
-                    res[0] = errCode;
-                    ws.send(res);
+                //    let res = new Uint8Array(1);
+                //    res[0] = errCode;
+                //    ws.send(res);
 
-                }
+               // }
 
 
 
-                let command = new SKCommand(wsMessage),
-                    stat = new Stat(wsMessage);
+               // let command = new SKCommand(wsMessage),
+               //     stat = new Stat(wsMessage);
 
                 if(!command.isPathValid){
                     sendErrCode(ws, ERR_CODES.ERR_FILENAME);
@@ -458,9 +509,39 @@ class Streamer{
                sendDataAsync(ws, state, command, stat);
             });
 
-             ws.on('error', (errMsg) => { /* todo: */  console.info("Client ERR: " + errMsg)});
-        });
+            // ws.on('error', (errMsg) => {   console.info("Client ERR: " + errMsg)});
+        });*/
 
+    }
+
+    get config() {
+       return this._config;
+    }
+
+    get ERR_CODES(){
+        return this._ERR_CODES;
+    }
+
+
+    finalizeConnection  (id)  {
+        if(!id || !this._connections || !this._connections[id]) return;
+        this._connections[id].destroy && this._connections[id].destroy();
+        this._connections[id] = null;
+    }
+
+    finalizeAllConnections(){
+        if(!this._connections){return;}
+        for( let p in this._connections){
+           this.finalizeConnection(p) ;
+        }
+    }
+
+    destroy(){
+        this.finalizeAllConnections();
+        for( let p in this){
+            this[p].destroy && this[p].destroy();
+            this[p] = null;
+        }
     }
 
 
@@ -468,4 +549,4 @@ class Streamer{
 
 
 
-module.exports = Streamer
+module.exports = Streamer;
