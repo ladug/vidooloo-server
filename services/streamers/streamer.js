@@ -326,7 +326,7 @@ class Streamer{
                                   let wsBuffer = BufferUtil.getBuffer(command.portion),
                                       wsBufferPos = 0;
 
-                                  //todo
+                                  //todo: remove => no need
                                   const fake = { stop : false };
 
                                   async.until( () => {
