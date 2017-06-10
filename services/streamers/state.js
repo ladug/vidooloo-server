@@ -22,6 +22,9 @@ class State {
         this._forceSendBuf = true;
         this._isClientHeaderSent = false;
 
+        //file descriptor
+        this._fd  = null;
+
     }
 
     //getters-----------------------
@@ -91,7 +94,16 @@ class State {
     get isEOF(){
         return this._position > 0 && this._position >= this._fileSize;
     }
+
+
+    get fd(){
+        return this._fd;
+    }
     //setters---------------------------
+
+    set fd(val){
+        this._fd = val;
+    }
     set isHeaderSent(val){
         this._isClientHeaderSent = val;
     }
@@ -146,6 +158,7 @@ class State {
         this._o2omapSize = 0;
         this._extractionsLen = 0;
         this._fileSize = 0;
+        this._fd = null;
 
         if (deletePath) {
             this._filePath = null;

@@ -32,8 +32,8 @@ class Connection  {
                 this.finalizeCurMessage();
                 return;
             }
-            //todo: LAST POINT OF FLOW
-            this.sendErrCode(this.ERR_CODES.ERR_EOF);
+
+            this._curMessage.readDataAsync();
         }
         this._onWsError = (err) => { console.info("onWsError :: " + err );}
 
