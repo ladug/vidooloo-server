@@ -48,8 +48,8 @@ class Message {
         return this._stat;
     }
 
-    send(){
-        this._connection && this._connection.send();
+    send(buf){
+        this._connection && this._connection.send(buf);
     }
 
     sendErrCode(err){

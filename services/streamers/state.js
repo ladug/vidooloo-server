@@ -6,7 +6,7 @@ const uid = require('uid-safe');
 class State {
     constructor(){
         this._uid = uid.sync(18);
-        this._position = 0;
+       /* this._position = 0;
         this._addReminder = null;
         this._chunkBuffer = null;
 
@@ -23,7 +23,8 @@ class State {
         this._isClientHeaderSent = false;
 
         //file descriptor
-        this._fd  = null;
+        this._fd  = null;*/
+        this.reset();
 
     }
 
@@ -151,14 +152,24 @@ class State {
     }
 
     reset(deletePath = true){
-        this._chunkBuffer = null;
-        this._addReminder = null;
         this._position = 0;
+        this._addReminder = null;
+        this._chunkBuffer = null;
+
+
+        //------------------------
+
         this._headersLength = 0;
         this._o2omapSize = 0;
         this._extractionsLen = 0;
         this._fileSize = 0;
-        this._fd = null;
+        //-------------------------
+
+        this._forceSendBuf = true;
+        this._isClientHeaderSent = false;
+
+        //file descriptor
+        this._fd  = null;
 
         if (deletePath) {
             this._filePath = null;
