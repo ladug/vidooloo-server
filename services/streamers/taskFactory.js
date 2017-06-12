@@ -2,6 +2,7 @@
  * Created by volodya on 6/10/2017.
  */
 const fs = require('fs'),
+      async = require('async'),
       BufferUtil = require('./bufferUtils');
 
 class TaskFactory{
@@ -18,28 +19,17 @@ class TaskFactory{
 
     setTasksAccordingToState(){
 
-        if(this._message.state.fd == null){
-            this._byMessageDefinedTasks.push(this.openSvfAsync.bind(this));
-        }
-
-        if(this._message.state.fsize == 0){
-            this._byMessageDefinedTasks.push(this.setFileSizeAsync.bind(this));
-        }
-
-        if(this._message.state.hdLen == 0){
-           this._byMessageDefinedTasks.push(this.setClientHeadersLenAsync.bind(this));
-        }
-
-        if(!this._message.state.isHeaderSent){
-            this._byMessageDefinedTasks.push(this.socketClientHeadersDataAsync.bind(this));
-        }
-
-        if(this._message.state.mapLen == 0){
-            this._byMessageDefinedTasks.push(this.setO2OMapSizeAsync.bind(this));
-        }
+        this._message.state.fd == null && this._byMessageDefinedTasks.push(this.openSvfAsync.bind(this));
+        this._message.state.fsize == 0 && this._byMessageDefinedTasks.push(this.setFileSizeAsync.bind(this));
+        this._message.state.hdLen == 0 && this._byMessageDefinedTasks.push(this.setClientHeadersLenAsync.bind(this));
+        !this._message.state.isHeaderSent && this._byMessageDefinedTasks.push(this.socketClientHeadersDataAsync.bind(this));
+        this._message.state.mapLen == 0 && this._byMessageDefinedTasks.push(this.setO2OMapSizeAsync.bind(this));
+        this._message.state.reqPvfOffset != null && this._byMessageDefinedTasks.push(this.setSvfOffset.bind(this));
+        this._message.state.chunksTotalLen == 0 && this._byMessageDefinedTasks.push(this.setExtractionsLen.bind(this));
     }
 
-
+    //--- tasks---------------------------------------------------------------------------------------------------------
+    
     setFileSizeAsync (callback){
         fs.fstat(fd, (err, curStat) => {
             if (err) {
@@ -64,7 +54,7 @@ class TaskFactory{
         // console.log('openAsync')
         callback();
        });
-    }
+    }//end of open svf async
 
     setClientHeadersLenAsync (callback){
 
@@ -145,6 +135,84 @@ class TaskFactory{
     }//end of setO2OMapSizeAsync
 
 
+    setSvfOffset (callback) {
+
+       // const mapBoxSize = 13;
+        let curPvfOffset = 0,
+            tempPos = this._message.state.hdLen + this._message.config.svfOffSet.postHdLenOffset;
+
+
+        const sayWhenStop = () => {
+                return curPvfOffset == this._message.reqPvfOffset || this._message.state.isOutOfMap(tempPos);
+              },
+              findRequestedPvfOffset = (done) => {
+                  BufferUtil.readFileNumAsync(
+                          this._message.state.fd,
+                          tempPos,
+                          this._message.config.svfOffSet.dataLen,//4
+                          this._message.config.svfOffSet.offset,//0
+                          BufferUtil.NumReadModes.UInt32BE,
+                          (err, pvfoffset) => {
+                              if(err) {/* console.info("err :: setSvfOffset => reading pvfoffset");*/
+                                  return callback(err);
+                              }
+                              curPvfOffset = pvfoffset;
+                              tempPos += this._message.config.svfOffSet.boxSize;//13
+                              // console.info("curPvfOffset :: " + curPvfOffset);
+                              // console.info("tempPos :: " + tempPos);
+                              done();
+                  });
+              },
+              setSvfOffset = (err) => {
+                  if(err){
+                      //console.info("err :: setSvfOffset => end of until async");
+                      return callback(err);
+                  }
+
+                  if(this._message.state.isOutOfMap(tempPos)){
+                      // console.info("err :: setSvfOffset => isOutOfMap");
+                      return  callback(this._message.ERR_CODES.ERR_PVFOFFSET);
+                  }
+
+                  tempPos -= this._message.config.svfOffSet.boxReminder;//- 13 + 4 = 9
+                  BufferUtil.readFileNumAsync(
+                      this._message.state.fd,
+                      tempPos,
+                      this._message.config.svfOffSet.dataLen,//4
+                      this._message.config.svfOffSet.offset,//0
+                      BufferUtil.NumReadModes.UInt32BE,
+                      (err, svfoffset) => {
+                          if(err) {
+                              //  console.info("err :: setSvfOffset => reading svfoffset");
+                              return callback(err);
+                          }
+
+                          this._message.state.position = svfoffset;
+                          //console.info("setting position to " + svfoffset);
+                          callback();
+
+                      })
+              };
+
+        async.until( sayWhenStop,findRequestedPvfOffset, setSvfOffset);
+    }//end of setSvfOffset
+
+    setExtractionsLen(callback) {
+        //const dataLen = 4, curOffset = 0;
+        BufferUtil.readFileNumAsync(this._message.state.fd,
+                                    this._message.state.pos,
+                                    this._message.config.extractions.dataLen,
+                                    this._message.config.extractions.offset,
+                                    BufferUtil.NumReadModes.UInt32BE,
+                                    (err, num) => {
+            if (err) { return callback(err);}
+            this._message.state.chunksTotalLen = num;
+            this._message.state.incrementPos(this._message.config.extractions.dataLen);
+            // console.log('readExtractionsLen');
+             callback();
+        });
+    }//end of setExtractionsLen
+
     finishRead (err,result) {
     //collect  stat data
         this._message.stat.appendStats(this._message.state.stats);
@@ -159,6 +227,7 @@ class TaskFactory{
            console.info(this._message.stat.log);
     }
 
+//-------getters----------------------------------------
 
     get messageReadTasks(){
         return this._byMessageDefinedTasks;
