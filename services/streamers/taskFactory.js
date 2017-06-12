@@ -29,7 +29,7 @@ class TaskFactory{
     }
 
     //--- tasks---------------------------------------------------------------------------------------------------------
-    
+
     setFileSizeAsync (callback){
         fs.fstat(fd, (err, curStat) => {
             if (err) {
