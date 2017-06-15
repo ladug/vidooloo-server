@@ -185,7 +185,7 @@ class State {
         console.info('.......................');*/
     }
 
-    mustStopRead(stopSignal) {
+    mustStopRead(stopSignal = false) {
         /*console.info('****************');
         console.info("stopSignal :: " + stopSignal);
         console.info("isBufferReady :: " + this.isBufferReady);

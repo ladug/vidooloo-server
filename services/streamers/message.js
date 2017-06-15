@@ -36,6 +36,10 @@ class Message {
         return this._command.isPathValid;
     }
 
+    get portion(){
+        return this._command.portion;
+    }
+
     get path(){
         return this._command.path;
     }

@@ -3,7 +3,8 @@
  */
 const fs = require('fs'),
       async = require('async'),
-      BufferUtil = require('./bufferUtils');
+      BufferUtil = require('./bufferUtils'),
+      BufferWrapper = require('./bufferWrapper');
 
 class TaskFactory{
 
@@ -26,6 +27,7 @@ class TaskFactory{
         this._message.state.mapLen == 0 && this._byMessageDefinedTasks.push(this.setO2OMapSizeAsync.bind(this));
         this._message.state.reqPvfOffset != null && this._byMessageDefinedTasks.push(this.setSvfOffset.bind(this));
         this._message.state.chunksTotalLen == 0 && this._byMessageDefinedTasks.push(this.setExtractionsLen.bind(this));
+        this._message._byMessageDefinedTasks.push(this.getChunksAsync.bind(this));
     }
 
     //--- tasks---------------------------------------------------------------------------------------------------------
@@ -213,8 +215,103 @@ class TaskFactory{
         });
     }//end of setExtractionsLen
 
+
+    //this, bufWrapper, callback - passed by bind
+    finishReadChunks(err){
+        if( err )  return callback(err);
+
+        //send reminder
+        if( this._message.state.isEOF ){
+            this._message.stat.isEOF = true;
+            if(bufWrapper) {
+                const reminder = bufWrapper.reminderBuff;
+                if(reminder){
+                    this._message.send( reminder );
+                    //fileWriteStream.write(reminder);
+                    this._message.stat.incrementBytesSent(reminder.length);
+                }
+            }
+        }
+
+        if(bufWrapper) { bufWrapper.destroy(); bufWrapper = null;}
+       // fileWriteStream.end();
+        callback();
+    }//end of finishReadChunks
+
+
+    //this, bufWrapper, callback, done - passed by bind
+    //expect to get 3 buffers
+    readChunksAndAddsCallback(err, buffers){
+        if (err) {
+            return callback(err);
+        }
+        if (!buffers || !buffers.length) {
+            return callback(this._message.ERR_CODES.ERR_READ_CHUNK_AND_ADD_BUFF);
+        }
+
+        const sendBuffer = () => {
+                this._message.send(bufWrapper.buffer);
+                this._message.state.isToSendBuf = false;
+                //todo debug
+                //fileWriteStream.write(wsBuffer);
+                this._message.stat.incrementBytesSent(bufWrapper.length);
+                // console.info("sent chunk buffer")
+            },
+            saveBuffer = () => {
+                this.state.buffer = bufWrapper.buffer;
+                // console.info("state.buffer set");
+               // fileWriteStream.write(wsBuffer);
+            };
+
+        for (let i = 0; !this._message.state.mustStopRead() && i < buffers.length; i++) {
+            let curBufferPos = 0;
+            while (!this._message.state.mustStopRead() && buffers[i] && curBufferPos < buffers[i].length) {
+
+               let copyLen = bufWrapper.getCopyLen(buffers[i].length);
+               buffers[i].copy(bufWrapper.buffer, bufWrapper.curPos,  0, copyLen);
+               bufWrapper.incrementPos(copyLen);
+               curBufferPos += copyLen;
+
+                if (bufWrapper.isFull) {
+                    this._message.state.isToSendBuf ? sendBuffer():saveBuffer();
+                    bufWrapper.reset();
+                }
+
+            }//end of inner loop (buffer[i])
+
+            (i == 0) && (this._message.state.incrementPos(this._message.config.svfChunk.dataLen));//2
+            (i == 1) && (this._message.state.incrementPos(buffers[i].length));
+        }
+
+        // console.info("almost done")
+        done();
+    }//readChunksAndAddsCallback;
+
+
+
+    readChunksAndAddsAsync(callback){
+        //todo: refactor
+    }
+
+    getChunksAsync(callback){
+
+        //use bufwrapper to collect chunks in it
+        let bufWrapper = new BufferWrapper(this._message.portion);
+
+        const  read =  (done) => {
+                  this.readChunksAndAddsCallBack.bind(this, bufWrapper, callback, done);
+                  this.readChunksAndAddsAsync.bind(this);
+                  this.readChunksAndAddsAsync(this.readChunksAndAddsCallBack);
+              };
+
+
+        async.until(this._message.state.mustStopRead, read, this.finishReadChunks.bind(this, bufWrapper, callback));
+
+    }//end of getChunksAsync
+
     finishRead (err,result) {
     //collect  stat data
+
         this._message.stat.appendStats(this._message.state.stats);
 
         if (err){
