@@ -85,7 +85,7 @@ class ChunkReader{
                 this._readSvfChunkLengthAsync.bind(this),
                 this._readSvfChunkAsync.bind(this)],
             finishReadingTasks = (err) => {
-                // console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
+                //console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
                 if(err){ return (callback(err)); }
                 //console.info('&&&&&&&&&&&&&&&&&&&&&&')
                 callback(null, this.buffers);

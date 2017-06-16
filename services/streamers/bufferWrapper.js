@@ -17,7 +17,7 @@ class BufferWrapper{
     }
 
     get curPos(){
-        this._curPos;
+      return  this._curPos;
     }
 
     get reminder(){
@@ -27,7 +27,8 @@ class BufferWrapper{
 
     get isFull(){
         if(! this._buffer ) return true;
-        return this._buffer.length - this._curPos == 1;
+       // console.info("_buffer length :: " + this._buffer.length + " _curPos :: " + this._curPos + " returns :: " + ((this._buffer.length - 1) <= this._curPos))
+        return ((this._buffer.length - 1) <= this._curPos);
     }
 
     get reminderBuff(){
@@ -49,6 +50,11 @@ class BufferWrapper{
 
     incrementPos(val){
         this._curPos += val;
+        //console.info("incremented buffwrapper pos :: " + this._curPos);
+    }
+
+    destroy(){
+        this._buffer = null;
     }
 
 

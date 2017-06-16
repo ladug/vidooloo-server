@@ -74,7 +74,7 @@ class Message {
         if( this.reqPvfOffset == null && this.state.isBufferReady){
             this.send(this.state.buffer);
             // fileWriteStream.write(state.buffer);
-            this.state.incrementBytesSent(this.state.buffer.length);
+            this.stat.incrementBytesSent(this.state.buffer.length);
             this.state.buffer = null;
         }
         else if(this.reqPvfOffset > 0){

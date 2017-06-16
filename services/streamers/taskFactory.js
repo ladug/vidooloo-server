@@ -224,8 +224,8 @@ class TaskFactory{
     finishReadChunks(err){
 
         const that = this.that,
-              callback = this.callback,
-              bufWrapper = this.bufWrapper;
+              callback = this.callback;
+         let  bufWrapper = this.bufWrapper;
 
         if( err )  return callback(err);
 
@@ -242,7 +242,7 @@ class TaskFactory{
             }
         }
 
-        if(bufWrapper) { bufWrapper.destroy();/* bufWrapper = null;*/}
+        if(bufWrapper) { bufWrapper.destroy(); bufWrapper = null;}
        // fileWriteStream.end();
         callback();
     }//end of finishReadChunks
@@ -251,7 +251,7 @@ class TaskFactory{
     //context - passed by bind
     //expect to get 3 buffers
     readChunksAndAddsCallback(err, buffers){
-
+       // console.info("readChunksAndAddsCallback")
         const that = this.that,
               callback = this.callback,
               done = this.done,
@@ -273,20 +273,21 @@ class TaskFactory{
                 // console.info("sent chunk buffer")
             },
             saveBuffer = () => {
-                that.state.buffer = bufWrapper.buffer;
+                that._message.state.buffer = bufWrapper.buffer;
                 // console.info("state.buffer set");
                // fileWriteStream.write(wsBuffer);
             };
 
         for (let i = 0; !that._message.state.mustStopRead() && i < buffers.length; i++) {
             let curBufferPos = 0;
-            while (!that._message.state.mustStopRead() && buffers[i] && bufWrapper.curPos < buffers[i].length) {
+            while (!that._message.state.mustStopRead() && buffers[i] && curBufferPos < buffers[i].length) {
 
                let copyLen = bufWrapper.getCopyLen(buffers[i].length);
+           //    console.info("copyLen :: " + copyLen);
                buffers[i].copy(bufWrapper.buffer, bufWrapper.curPos,  0, copyLen);
                bufWrapper.incrementPos(copyLen);
                curBufferPos += copyLen;
-
+             //   console.info("bufWrapper :: " + bufWrapper.buffer.length);
                 if (bufWrapper.isFull) {
                     that._message.state.isToSendBuf ? sendBuffer():saveBuffer();
                     bufWrapper.reset();
@@ -371,9 +372,10 @@ class TaskFactory{
 
         //use bufwrapper to collect chunks in it
         let bufWrapper = new BufferWrapper(this._message.portion);
-
-        const mustStopRead = () => { return this._message.state.mustStopRead()},
+        let i = 0;
+        const mustStopRead = () => { let res = this._message.state.mustStopRead(); /*console.info("mustread :: " + res);*/ return res},
               read =  (done) => {
+                 // console.info("read :: " + ( ++i));
                   const chunkReader = new ChunkReader(this._message);
                   const context = { that : this, bufWrapper : bufWrapper, callback : callback, done: done}
                   chunkReader.readChunksAndAddsAsync(this._readChunksAndAddsCallback.bind(context));
