@@ -5,36 +5,39 @@ const fs = require('fs'),
       async = require('async'),
       BufferUtil = require('./bufferUtils'),
       BufferWrapper = require('./bufferWrapper'),
-      SvfAddIntegratedData = require('./svfAddIntegratedData');
+      ChunkReader = require('./chunkReader');
 
 class TaskFactory{
 
     constructor(message){
 
         this._message = message;
-
         this._byMessageDefinedTasks = new Array();
         this.setTasksAccordingToState();
+        this.setPrivateAliases();
+    }
 
-
+    setPrivateAliases(){
+        this._readChunksAndAddsCallback = this.readChunksAndAddsCallback;
+        this._readChunksAndAddsAsync = this.readChunksAndAddsAsync;
     }
 
     setTasksAccordingToState(){
 
         this._message.state.fd == null && this._byMessageDefinedTasks.push(this.openSvfAsync.bind(this));
-        this._message.state.fsize == 0 && this._byMessageDefinedTasks.push(this.setFileSizeAsync.bind(this));
+        this._message.state.fSize == 0 && this._byMessageDefinedTasks.push(this.setFileSizeAsync.bind(this));
         this._message.state.hdLen == 0 && this._byMessageDefinedTasks.push(this.setClientHeadersLenAsync.bind(this));
         !this._message.state.isHeaderSent && this._byMessageDefinedTasks.push(this.socketClientHeadersDataAsync.bind(this));
         this._message.state.mapLen == 0 && this._byMessageDefinedTasks.push(this.setO2OMapSizeAsync.bind(this));
         this._message.state.reqPvfOffset != null && this._byMessageDefinedTasks.push(this.setSvfOffset.bind(this));
         this._message.state.chunksTotalLen == 0 && this._byMessageDefinedTasks.push(this.setExtractionsLen.bind(this));
-        this._message._byMessageDefinedTasks.push(this.getChunksAsync.bind(this));
+        this._byMessageDefinedTasks.push(this.getChunksAsync.bind(this));
     }
 
     //--- tasks---------------------------------------------------------------------------------------------------------
 
     setFileSizeAsync (callback){
-        fs.fstat(fd, (err, curStat) => {
+        fs.fstat(this._message.state.fd, (err, curStat) => {
             if (err) {
                 // console.info("err :: getFileStatsAsync");
                 return callback(err);
@@ -219,54 +222,65 @@ class TaskFactory{
 
     //this, bufWrapper, callback - passed by bind
     finishReadChunks(err){
+
+        const that = this.that,
+              callback = this.callback,
+              bufWrapper = this.bufWrapper;
+
         if( err )  return callback(err);
 
         //send reminder
-        if( this._message.state.isEOF ){
-            this._message.stat.isEOF = true;
+        if( that._message.state.isEOF ){
+            that._message.stat.isEOF = true;
             if(bufWrapper) {
                 const reminder = bufWrapper.reminderBuff;
                 if(reminder){
-                    this._message.send( reminder );
+                    that._message.send( reminder );
                     //fileWriteStream.write(reminder);
-                    this._message.stat.incrementBytesSent(reminder.length);
+                    that._message.stat.incrementBytesSent(reminder.length);
                 }
             }
         }
 
-        if(bufWrapper) { bufWrapper.destroy(); bufWrapper = null;}
+        if(bufWrapper) { bufWrapper.destroy();/* bufWrapper = null;*/}
        // fileWriteStream.end();
         callback();
     }//end of finishReadChunks
 
 
-    //this, bufWrapper, callback, done - passed by bind
+    //context - passed by bind
     //expect to get 3 buffers
     readChunksAndAddsCallback(err, buffers){
+
+        const that = this.that,
+              callback = this.callback,
+              done = this.done,
+              bufWrapper = this.bufWrapper;
+
         if (err) {
             return callback(err);
         }
         if (!buffers || !buffers.length) {
-            return callback(this._message.ERR_CODES.ERR_READ_CHUNK_AND_ADD_BUFF);
+            return callback(that._message.ERR_CODES.ERR_READ_CHUNK_AND_ADD_BUFF);
         }
 
         const sendBuffer = () => {
-                this._message.send(bufWrapper.buffer);
-                this._message.state.isToSendBuf = false;
+                that._message.send(bufWrapper.buffer);
+                that._message.state.isToSendBuf = false;
                 //todo debug
                 //fileWriteStream.write(wsBuffer);
-                this._message.stat.incrementBytesSent(bufWrapper.length);
+                that._message.stat.incrementBytesSent(bufWrapper.length);
                 // console.info("sent chunk buffer")
             },
             saveBuffer = () => {
-                this.state.buffer = bufWrapper.buffer;
+                that.state.buffer = bufWrapper.buffer;
                 // console.info("state.buffer set");
                // fileWriteStream.write(wsBuffer);
             };
 
-        for (let i = 0; !this._message.state.mustStopRead() && i < buffers.length; i++) {
+        for (let i = 0; !that._message.state.mustStopRead() && i < buffers.length; i++) {
             let curBufferPos = 0;
-            while (!this._message.state.mustStopRead() && buffers[i] && bufWrapper.curPos < buffers[i].length) {
+            while (!that._message.state.mustStopRead() && buffers[i] && bufWrapper.curPos < buffers[i].length) {
 
                let copyLen = bufWrapper.getCopyLen(buffers[i].length);
                buffers[i].copy(bufWrapper.buffer, bufWrapper.curPos,  0, copyLen);
@@ -274,7 +288,7 @@ class TaskFactory{
                curBufferPos += copyLen;
 
                 if (bufWrapper.isFull) {
-                    this._message.state.isToSendBuf ? sendBuffer():saveBuffer();
+                    that._message.state.isToSendBuf ? sendBuffer():saveBuffer();
                     bufWrapper.reset();
                 }
 
@@ -290,75 +304,10 @@ class TaskFactory{
 
 
 
-    //svfAddIntegratedData assumed as passed in bind
-    tryToGetAddAsync(callback){
-        const addModuleCallback = (err, buffer) => {
-            if(err){ return (callback(err))}
-            svfAddIntegratedData.addBuffer = buffer;
-            // console.log('addLenBuffer :: ' +  new Uint8Array(addLenBuffer));
-            callback();
-        },
-            tempGetAdd = (id, callback) => {
-               callback(null, null);
-            };
-        //todo: define id param
-        tempGetAdd(null, addModuleCallback);
-        //addModule.getAdd( id, addModuleCallback);
-    }
 
-    //svfAddIntegratedData assumed as passed in bind
-    readSvfChunkLengthAsync (callback){
 
-        const readFileNumCallback = (err, num) =>{
-            if(err){return callback(err);}
-            // console.info("svfChunkSize :: " + num);
-            svfAddIntegratedData.svfChunkSize = num;
-            this._message.state.incrementPos(this._message.config.svfChunk.dataLen);
-            // console.log('chunks => readSvfChunkLengthAsync');
-            callback();
-        };
 
-        BufferUtil.readFileNumAsync(this._message.state.fd,
-                                    this._message.state.pos,
-                                    this._message.config.svfChunk.dataLen,//2
-                                    this._message.config.svfChunk.offset,//0
-                                    BufferUtil.NumReadModes.UInt16BE,
-                                    readFileNumCallback);
-   }//readSvfChunkLengthAsync
 
-    //svfAddIntegratedData assumed as passed in bind
-    readSvfChunkAsync(callback){
-
-            const len = svfAddIntegratedData.svfChunkSize + this._message.config.svfChunk.skipFactorLen,
-                readFileBufCallback = (err, buffer) => {
-                if(err){return callback(err);}
-                if(buffer) {
-                    svfAddIntegratedData.svfBuffer = buffer;
-                    this._message.state.incrementPos(buffer.length);
-                }
-                callback()
-            }
-
-            BufferUtil.readFileBufAsync(this._message.state.fd,
-                                        this._message.state.pos,
-                                        len,
-                                        this._message.config.svfChunk.offset,
-                                        readFileBufCallback);
-    }//end of svfAddIntegratedData
-
-    readChunksAndAddsAsync(callback){
-        let svfAddIntegratedData = new SvfAddIntegratedData();
-        const readingTasks = [this.tryToGetAddAsync.bind(this, svfAddIntegratedData),
-                              this.readSvfChunkLengthAsync.bind(this, svfAddIntegratedData),
-                              this.readSvfChunkAsync.bind(this, svfAddIntegratedData)],
-              finishReadingTasks = (err) => {
-                  // console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
-                  if(err){ return (callback(err)); }
-                  //console.info('&&&&&&&&&&&&&&&&&&&&&&')
-                  callback(null, svfAddIntegratedData.buffers);
-              };
-        async.series(readingTasks, finishReadingTasks);
-    }//end of readChunksAndAddsAsync
 
    /* const rsSvfChunksAsync = ( id, fd, position, callback )=>{
     // console.info('&&&&&&&&&&&&&&&&&&&&&')
@@ -423,14 +372,18 @@ class TaskFactory{
         //use bufwrapper to collect chunks in it
         let bufWrapper = new BufferWrapper(this._message.portion);
 
-        const  read =  (done) => {
-                  this.readChunksAndAddsCallBack.bind(this, bufWrapper, callback, done);
-                  this.readChunksAndAddsAsync.bind(this);
-                  this.readChunksAndAddsAsync(this.readChunksAndAddsCallBack);
+        const mustStopRead = () => { return this._message.state.mustStopRead()},
+              read =  (done) => {
+                  const chunkReader = new ChunkReader(this._message);
+                  const context = { that : this, bufWrapper : bufWrapper, callback : callback, done: done}
+                  chunkReader.readChunksAndAddsAsync(this._readChunksAndAddsCallback.bind(context));
+                 // this.readChunksAndAddsAsync(this.readChunksAndAddsCallBack);
               };
 
 
-        async.until(this._message.state.mustStopRead, read, this.finishReadChunks.bind(this, bufWrapper, callback));
+        async.until(mustStopRead,
+                    read,
+                    this.finishReadChunks.bind({that: this, bufWrapper: bufWrapper, callback: callback}));
 
     }//end of getChunksAsync
 
