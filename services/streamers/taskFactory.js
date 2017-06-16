@@ -4,7 +4,8 @@
 const fs = require('fs'),
       async = require('async'),
       BufferUtil = require('./bufferUtils'),
-      BufferWrapper = require('./bufferWrapper');
+      BufferWrapper = require('./bufferWrapper'),
+      SvfAddIntegratedData = require('./svfAddIntegratedData');
 
 class TaskFactory{
 
@@ -265,7 +266,7 @@ class TaskFactory{
 
         for (let i = 0; !this._message.state.mustStopRead() && i < buffers.length; i++) {
             let curBufferPos = 0;
-            while (!this._message.state.mustStopRead() && buffers[i] && curBufferPos < buffers[i].length) {
+            while (!this._message.state.mustStopRead() && buffers[i] && bufWrapper.curPos < buffers[i].length) {
 
                let copyLen = bufWrapper.getCopyLen(buffers[i].length);
                buffers[i].copy(bufWrapper.buffer, bufWrapper.curPos,  0, copyLen);
@@ -279,8 +280,8 @@ class TaskFactory{
 
             }//end of inner loop (buffer[i])
 
-            (i == 0) && (this._message.state.incrementPos(this._message.config.svfChunk.dataLen));//2
-            (i == 1) && (this._message.state.incrementPos(buffers[i].length));
+            //(i == 0) && (this._message.state.incrementPos(this._message.config.svfChunk.dataLen));//2
+            //(i == 1) && (this._message.state.incrementPos(buffers[i].length));
         }
 
         // console.info("almost done")
@@ -289,9 +290,133 @@ class TaskFactory{
 
 
 
-    readChunksAndAddsAsync(callback){
-        //todo: refactor
+    //svfAddIntegratedData assumed as passed in bind
+    tryToGetAddAsync(callback){
+        const addModuleCallback = (err, buffer) => {
+            if(err){ return (callback(err))}
+            svfAddIntegratedData.addBuffer = buffer;
+            // console.log('addLenBuffer :: ' +  new Uint8Array(addLenBuffer));
+            callback();
+        },
+            tempGetAdd = (id, callback) => {
+               callback(null, null);
+            };
+        //todo: define id param
+        tempGetAdd(null, addModuleCallback);
+        //addModule.getAdd( id, addModuleCallback);
     }
+
+    //svfAddIntegratedData assumed as passed in bind
+    readSvfChunkLengthAsync (callback){
+
+        const readFileNumCallback = (err, num) =>{
+            if(err){return callback(err);}
+            // console.info("svfChunkSize :: " + num);
+            svfAddIntegratedData.svfChunkSize = num;
+            this._message.state.incrementPos(this._message.config.svfChunk.dataLen);
+            // console.log('chunks => readSvfChunkLengthAsync');
+            callback();
+        };
+
+        BufferUtil.readFileNumAsync(this._message.state.fd,
+                                    this._message.state.pos,
+                                    this._message.config.svfChunk.dataLen,//2
+                                    this._message.config.svfChunk.offset,//0
+                                    BufferUtil.NumReadModes.UInt16BE,
+                                    readFileNumCallback);
+   }//readSvfChunkLengthAsync
+
+    //svfAddIntegratedData assumed as passed in bind
+    readSvfChunkAsync(callback){
+
+            const len = svfAddIntegratedData.svfChunkSize + this._message.config.svfChunk.skipFactorLen,
+                readFileBufCallback = (err, buffer) => {
+                if(err){return callback(err);}
+                if(buffer) {
+                    svfAddIntegratedData.svfBuffer = buffer;
+                    this._message.state.incrementPos(buffer.length);
+                }
+                callback()
+            }
+
+            BufferUtil.readFileBufAsync(this._message.state.fd,
+                                        this._message.state.pos,
+                                        len,
+                                        this._message.config.svfChunk.offset,
+                                        readFileBufCallback);
+    }//end of svfAddIntegratedData
+
+    readChunksAndAddsAsync(callback){
+        let svfAddIntegratedData = new SvfAddIntegratedData();
+        const readingTasks = [this.tryToGetAddAsync.bind(this, svfAddIntegratedData),
+                              this.readSvfChunkLengthAsync.bind(this, svfAddIntegratedData),
+                              this.readSvfChunkAsync.bind(this, svfAddIntegratedData)],
+              finishReadingTasks = (err) => {
+                  // console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
+                  if(err){ return (callback(err)); }
+                  //console.info('&&&&&&&&&&&&&&&&&&&&&&')
+                  callback(null, svfAddIntegratedData.buffers);
+              };
+        async.series(readingTasks, finishReadingTasks);
+    }//end of readChunksAndAddsAsync
+
+   /* const rsSvfChunksAsync = ( id, fd, position, callback )=>{
+    // console.info('&&&&&&&&&&&&&&&&&&&&&')
+    // console.info("position :: " + position);
+    const skipFactorBytes = 1;
+    let svfChunkSize = 0,  svfBuffer = null, addBuffer = null, addLenBuffer = null;
+
+
+    async.series({
+        tryToGetAddAsync: (mycallback) =>{
+            getAddBuffer(id, (err, buffer) => {
+                if(err){ return (mycallback(err))}
+                addBuffer = buffer;
+                addLenBuffer = BufferUtil.getUint24AsBuffer((addBuffer && addBuffer.length) || 0);
+                // console.log('addLenBuffer :: ' +  new Uint8Array(addLenBuffer));
+                mycallback();
+            });
+
+        },
+
+        readSvfChunkLengthAsync : (mycallback)=>{
+            const dataLen = 2, curOffset = 0;
+            BufferUtil.readFileNumAsync(fd, position, dataLen,
+                curOffset, BufferUtil.NumReadModes.UInt16BE, (err, num) =>{
+                    if(err){return mycallback(err);}
+                    // console.info("svfChunkSize :: " + num);
+                    svfChunkSize = num;
+                    position += dataLen;
+                    // console.log('chunks => readSvfChunkLengthAsync');
+                    mycallback();
+                });
+        },
+
+        readSvfChunkAsync: (mycallback) => {
+            const len = svfChunkSize + skipFactorBytes, curOffset = 0;
+            BufferUtil.readFileBufAsync(fd, position, len, curOffset, (err, buffer) => {
+                if(err){return mycallback(err);}
+                svfBuffer = buffer;
+                //console.info('svfBuffer :: ' + new Uint8Array(buffer));
+                mycallback();
+            })
+        }
+
+    }, (err) => {
+        // console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
+        if(err){
+
+            return (callback(err));
+        }
+        let res = new Array();
+
+        res.push(addLenBuffer)
+        res.push(svfBuffer);
+        addBuffer && res.push(addBuffer);
+        //console.info('&&&&&&&&&&&&&&&&&&&&&&')
+        callback(null, res);
+    });
+}*/
 
     getChunksAsync(callback){
 

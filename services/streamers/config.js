@@ -5,13 +5,12 @@
 
 const config =
     {
-            svfChunk : {dataLen : 2 , offset : 0},
+            svfChunk : {dataLen : 2 , offset : 0, skipFactorLen : 1},
             clientHeaders : {dataLen : 3, offset : 1},
             clientHeadersDataOffset : 0,
             o2oMap : {dataLen : 3, offset : 1},
             svfOffSet : {boxSize: 13, boxReminder : 9, postHdLenOffset: 6, dataLen: 4, offset : 0},
-            extractions : {dataLen : 4, offset: 0},
-            skipFactorLen : 1,
+            extractions : {dataLen : 4, offset: 0}
 
     }
 
