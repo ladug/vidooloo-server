@@ -104,7 +104,9 @@ class TaskFactory{
                         }
 
                         this._message.send(buffer);
+                        this._message.appendSendTime();
                         this._message.writeToFile(buffer);
+
                         //todo debug
                         // fileWriteStream.write(buffer);
 
