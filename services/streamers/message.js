@@ -13,7 +13,7 @@ class Message {
 
         this._connection = connection;
         this._command = new SKCommand(msg);
-        this._stat = new Stat(msg);
+        this._stat = new Stat(msg, this._connection.config.saveToFile ? this._command.path : null);
 
         this._taskFactory = new TaskFactory(this);
 
@@ -60,6 +60,14 @@ class Message {
         this._connection && this._connection.sendErrCode(err);
     }
 
+    appendSendTime(){
+        this._stat.appendSentToClientTime();
+    }
+
+    writeToFile(buffer){
+        this._stat.writeToFile(buffer);
+    }
+
     destroy(){
         this._command = null;
         this._stat = null;
@@ -73,7 +81,8 @@ class Message {
 
         if( this.reqPvfOffset == null && this.state.isBufferReady){
             this.send(this.state.buffer);
-            // fileWriteStream.write(state.buffer);
+            this.stat.appendSentToClientTime();
+            this.stat.writeToFile(this.state.buffer);
             this.stat.incrementBytesSent(this.state.buffer.length);
             this.state.buffer = null;
         }

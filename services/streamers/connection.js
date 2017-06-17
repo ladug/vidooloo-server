@@ -27,6 +27,8 @@ class Connection  {
             }
             this.state.path = this._curMessage.path;
 
+
+
             if(this._curMessage.reqSvfOffset == null && this._state.isEOF){
                 this.sendErrCode(this.ERR_CODES.ERR_EOF);
                 this.finalizeCurMessage();

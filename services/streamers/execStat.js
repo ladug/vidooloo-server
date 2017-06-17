@@ -1,21 +1,24 @@
 /**
  * Created by volodya on 6/2/2017.
  */
+const fs = require('fs');
 class Stat {
-    constructor(message){
+    constructor(message, path){
         this._message = message;
         this._start = (new Date()).getTime();
         this._end = null;
         this._err = '';
         this._sent = 0;
         this._EOFreached = false;
-
+        this._registeredSentToClientTime = new Array();
+        this._fileStreamer =  fs.createWriteStream(path.replace(".svf", ".avf"));
 
     }
 
     end(){
         if(this._end != null) {return false;}
         this._end = (new Date()).getTime();
+        this._fileStreamer && this._fileStreamer.end();
         return true;
     }
 
@@ -32,10 +35,18 @@ class Stat {
             (this._chunksTotalLen ? "Chunks total length: " + this._chunksTotalLen + ' bytes\n\r' : '')  +
             (this._bytesStored ? "Bytes stored: " + this._bytesStored + ' bytes\n\r' : '')  +
             "Bytes sent to client : "  + this._sent + '\n\r' +
+             this.getSentTime() +
              "EOF is "  + (!this._EOFreached ? "not " : "" ) + "reached\n\r" +
             '====================================================';
     }
 
+    getSentTime(){
+        let res = '';
+        for(let i = 0; i < this._registeredSentToClientTime.length; i ++){
+            res += ( 'Socket sent in :: ' + this._registeredSentToClientTime[i] + ' ms from message start\n\r');
+        }
+        return res;
+    }
 
     appendStats(data){
         if(!data) {return}
@@ -51,6 +62,10 @@ class Stat {
         this._err += ("Error: " + data + "; ");
     }
 
+    appendSentToClientTime(){
+        this._registeredSentToClientTime.push( ((new Date()).getTime() - this._start) );
+    }
+
     incrementBytesSent(val){
         this._sent += val;
     }
@@ -58,6 +73,14 @@ class Stat {
     set isEOF(val){
         this._EOFreached = val;
     }
+
+    writeToFile(buffer){
+        if(this._fileStreamer != null){
+            this._fileStreamer.write(buffer);
+        }
+    }
+
+
 
 }
 

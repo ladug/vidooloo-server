@@ -28,7 +28,7 @@ class TaskFactory{
         this._message.state.hdLen == 0 && this._byMessageDefinedTasks.push(this.setClientHeadersLenAsync.bind(this));
         !this._message.state.isHeaderSent && this._byMessageDefinedTasks.push(this.socketClientHeadersDataAsync.bind(this));
         this._message.state.mapLen == 0 && this._byMessageDefinedTasks.push(this.setO2OMapSizeAsync.bind(this));
-        this._message.state.reqPvfOffset != null && this._byMessageDefinedTasks.push(this.setSvfOffset.bind(this));
+        this._message.reqPvfOffset != null && this._byMessageDefinedTasks.push(this.setSvfOffset.bind(this));
         this._message.state.chunksTotalLen == 0 && this._byMessageDefinedTasks.push(this.setExtractionsLen.bind(this));
         this._byMessageDefinedTasks.push(this.getChunksAsync.bind(this));
     }
@@ -104,7 +104,7 @@ class TaskFactory{
                         }
 
                         this._message.send(buffer);
-
+                        this._message.writeToFile(buffer);
                         //todo debug
                         // fileWriteStream.write(buffer);
 
@@ -192,8 +192,8 @@ class TaskFactory{
                               return callback(err);
                           }
 
-                          this._message.state.position = svfoffset;
-                          //console.info("setting position to " + svfoffset);
+                          this._message.state.pos = svfoffset;
+                          console.info("setting position to " + svfoffset);
                           callback();
 
                       })
@@ -265,16 +265,17 @@ class TaskFactory{
 
         const sendBuffer = () => {
                 that._message.send(bufWrapper.buffer);
+                that._message.appendSendTime();
                 that._message.state.isToSendBuf = false;
                 //todo debug
-                //fileWriteStream.write(wsBuffer);
+                that._message.writeToFile(bufWrapper.buffer);
                 that._message.stat.incrementBytesSent(bufWrapper.length);
                 // console.info("sent chunk buffer")
             },
             saveBuffer = () => {
                 that._message.state.buffer = bufWrapper.buffer;
                 // console.info("state.buffer set");
-               // fileWriteStream.write(wsBuffer);
+                that._message.writeToFile(bufWrapper.buffer);
             };
 
         for (let i = 0; !that._message.state.mustStopRead() && i < buffers.length; i++) {
@@ -302,72 +303,9 @@ class TaskFactory{
         done();
     }//readChunksAndAddsCallback;
 
-
-
-
-
-
-
-
-   /* const rsSvfChunksAsync = ( id, fd, position, callback )=>{
-    // console.info('&&&&&&&&&&&&&&&&&&&&&')
-    // console.info("position :: " + position);
-    const skipFactorBytes = 1;
-    let svfChunkSize = 0,  svfBuffer = null, addBuffer = null, addLenBuffer = null;
-
-
-    async.series({
-        tryToGetAddAsync: (mycallback) =>{
-            getAddBuffer(id, (err, buffer) => {
-                if(err){ return (mycallback(err))}
-                addBuffer = buffer;
-                addLenBuffer = BufferUtil.getUint24AsBuffer((addBuffer && addBuffer.length) || 0);
-                // console.log('addLenBuffer :: ' +  new Uint8Array(addLenBuffer));
-                mycallback();
-            });
-
-        },
-
-        readSvfChunkLengthAsync : (mycallback)=>{
-            const dataLen = 2, curOffset = 0;
-            BufferUtil.readFileNumAsync(fd, position, dataLen,
-                curOffset, BufferUtil.NumReadModes.UInt16BE, (err, num) =>{
-                    if(err){return mycallback(err);}
-                    // console.info("svfChunkSize :: " + num);
-                    svfChunkSize = num;
-                    position += dataLen;
-                    // console.log('chunks => readSvfChunkLengthAsync');
-                    mycallback();
-                });
-        },
-
-        readSvfChunkAsync: (mycallback) => {
-            const len = svfChunkSize + skipFactorBytes, curOffset = 0;
-            BufferUtil.readFileBufAsync(fd, position, len, curOffset, (err, buffer) => {
-                if(err){return mycallback(err);}
-                svfBuffer = buffer;
-                //console.info('svfBuffer :: ' + new Uint8Array(buffer));
-                mycallback();
-            })
-        }
-
-    }, (err) => {
-        // console.info("end of reading series err: " + err + "addLenBuffer :: " + addLenBuffer + " svfBuffer :: " + svfBuffer + " addbuffer :: " + addBuffer );
-        if(err){
-
-            return (callback(err));
-        }
-        let res = new Array();
-
-        res.push(addLenBuffer)
-        res.push(svfBuffer);
-        addBuffer && res.push(addBuffer);
-        //console.info('&&&&&&&&&&&&&&&&&&&&&&')
-        callback(null, res);
-    });
-}*/
-
     getChunksAsync(callback){
+
+       // console.info("curPos :: " + this._message.state.pos);
 
         //use bufwrapper to collect chunks in it
         let bufWrapper = new BufferWrapper(this._message.portion);

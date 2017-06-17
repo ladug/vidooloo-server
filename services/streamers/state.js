@@ -141,6 +141,8 @@ class State {
         }
         this._filePath = data;
 
+
+
     }
 
     set chunksTotalLen(data){
@@ -166,7 +168,7 @@ class State {
         //-------------------------
 
         this._isClientHeaderSent = false;
-        this._forceSendBuf = false;
+        this._forceSendBuf = true;
 
 
         //file descriptor
