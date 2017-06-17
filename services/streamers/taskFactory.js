@@ -19,7 +19,6 @@ class TaskFactory{
 
     setPrivateAliases(){
         this._readChunksAndAddsCallback = this.readChunksAndAddsCallback;
-        this._readChunksAndAddsAsync = this.readChunksAndAddsAsync;
     }
 
     setTasksAccordingToState(){
