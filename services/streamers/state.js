@@ -168,7 +168,7 @@ class State {
         //-------------------------
 
         this._isClientHeaderSent = false;
-        this._forceSendBuf = false;
+        this._forceSendBuf = true;
 
 
         //file descriptor

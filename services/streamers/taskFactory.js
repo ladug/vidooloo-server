@@ -257,7 +257,7 @@ class TaskFactory{
               callback = this.callback,
               done = this.done,
               bufWrapper = this.bufWrapper;
-
+        console.info("readChunksAndAddsCallback pos :: " + that._message.state.pos);
         if (err) {
             return callback(err);
         }
@@ -297,8 +297,8 @@ class TaskFactory{
 
             }//end of inner loop (buffer[i])
 
-            //(i == 0) && (this._message.state.incrementPos(this._message.config.svfChunk.dataLen));//2
-            //(i == 1) && (this._message.state.incrementPos(buffers[i].length));
+            (i == 0) && (that._message.state.incrementPos(that._message.config.svfChunk.dataLen));//2
+            (i == 1) && (that._message.state.incrementPos(buffers[i].length));
         }
 
         // console.info("almost done")
@@ -315,7 +315,7 @@ class TaskFactory{
         const mustStopRead = () => { let res = this._message.state.mustStopRead(); /*console.info("mustread :: " + res);*/ return res},
               read =  (done) => {
                  // console.info("read :: " + ( ++i));
-                  const chunkReader = new ChunkReader(this._message);
+                  const chunkReader = new ChunkReader(this._message, this._message.state.pos);
                   const context = { that : this, bufWrapper : bufWrapper, callback : callback, done: done}
                   chunkReader.readChunksAndAddsAsync(this._readChunksAndAddsCallback.bind(context));
                  // this.readChunksAndAddsAsync(this.readChunksAndAddsCallBack);

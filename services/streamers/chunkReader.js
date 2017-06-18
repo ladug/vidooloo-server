@@ -5,8 +5,10 @@ const async = require('async'),
     BufferUtil = require('./bufferUtils');
 
 class ChunkReader{
-    constructor(message){
+    constructor(message, pos){
+            //todo: take only relevant from the message
             this._message = message;
+            this._pos = pos;
             this._svfChunkSize = 0;
             this._svf = null;
             this._add = null;
@@ -20,7 +22,7 @@ class ChunkReader{
     }
 
     get buffers(){
-        return [this._svf, this.addLenAsBuffer, this._add];
+        return [this.addLenAsBuffer, this._svf,  this._add];
     }
 
     get addLenAsBuffer(){
@@ -49,13 +51,15 @@ class ChunkReader{
                 if(err){return callback(err);}
                 if(buffer) {
                     this._svf = buffer;
-                    this._message.state.incrementPos(buffer.length);
+                  //  this._message.state.incrementPos(buffer.length);
+                    this._pos += buffer.length;
                 }
                 callback()
             }
 
         BufferUtil.readFileBufAsync(this._message.state.fd,
-            this._message.state.pos,
+           //this._message.state.pos,
+            this._pos,
             len,
             this._message.config.svfChunk.offset,
             readFileBufCallback);
@@ -100,18 +104,22 @@ class ChunkReader{
             if(err){return callback(err);}
             // console.info("svfChunkSize :: " + num);
             this.svfChunkSize = num;
-            this._message.state.incrementPos(this._message.config.svfChunk.dataLen);
+           // this._message.state.incrementPos(this._message.config.svfChunk.dataLen);
+            this._pos += this._message.config.svfChunk.dataLen;
             // console.log('chunks => readSvfChunkLengthAsync');
             callback();
         };
 
         BufferUtil.readFileNumAsync(this._message.state.fd,
-            this._message.state.pos,
+            //this._message.state.pos,
+            this._pos,
             this._message.config.svfChunk.dataLen,//2
             this._message.config.svfChunk.offset,//0
             BufferUtil.NumReadModes.UInt16BE,
             readFileNumCallback);
     }//readSvfChunkLengthAsync
+
+
 }
 
 
