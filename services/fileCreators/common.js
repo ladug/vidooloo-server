@@ -79,7 +79,7 @@ const getSplitSample = (data, size, skipFactor) => {
         svfChunk = new Uint8Array(svfChunkSize);
 
     for (let readIndex = 0, pvfIndex = 0, svfIndex = 0, svfReadIndex = skipFactor; readIndex < size; readIndex++) {
-        if (svfReadIndex === readIndex) {
+        if (svfReadIndex - 1 === readIndex) {
             svfChunk[svfIndex++] = data[readIndex];
             svfReadIndex += skipFactor;
         } else {
