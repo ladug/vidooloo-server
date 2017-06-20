@@ -30,6 +30,10 @@ class State {
 
     //getters-----------------------
 
+    get chunksReminder(){
+      return  this._chunksReadReminder;
+    }
+
     get isHeaderSent(){
         return this._isClientHeaderSent;
     }
@@ -153,12 +157,16 @@ class State {
         this._forceSendBuf = val;
     }
 
+    set chunksReminder(val){
+        this._chunksReadReminder = null;
+    }
+
     reset(deletePath = true){
         this._position = 0;
         this._addReminder = null;
         this._chunkBuffer = null;
 
-
+        this._chunksReadReminder = null
         //------------------------
 
         this._headersLength = 0;
