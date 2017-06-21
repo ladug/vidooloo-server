@@ -83,8 +83,13 @@ const readFileNumAsync = (fd, position, length,  offset, mode, callback ) => {
     })
 }
 
+const concat = (arr) => {
+    return Buffer.concat(arr);
+}
+
 
 module.exports = {
+    concat,
     test24UintBufferSync,
     fromOrSlice,
     getBuffer,

@@ -50,7 +50,10 @@ const writeSizeAndFlags = (file, size, isVideo, isKey) => { //total size 3 bytes
 };
 
 const generateSkipFactor = sampleSize => {
-    const min = sampleSize < 16 ? sampleSize : 16, //if size is under 16, us the size as minimum
+    if (!sampleSize || sampleSize < 4) {
+        throw new Error("Sample is too small!!")
+    }
+    const min = sampleSize <= 16 ? parseInt(sampleSize / 2) : 16, //if size is under 16, us the size as minimum
         max = sampleSize > 256 ? 256 : sampleSize;
     return parseInt(Math.random() * (max - min)) + min; //Default 16-255
 };
@@ -71,12 +74,12 @@ const getSplitChunkSizes = (size, skipFactor) => {
 //TODO:IMPORTANT optimization needed
 const getSplitSample = (data, size, skipFactor) => {
     assert(size !== 0, "Sample size is 0!");
-    const {svfChunkSize, pvfChunkSize}=getSplitChunkSizes(size, skipFactor),
+    const {svfChunkSize, pvfChunkSize} = getSplitChunkSizes(size, skipFactor),
         pvfChunk = new Uint8Array(pvfChunkSize),
         svfChunk = new Uint8Array(svfChunkSize);
 
     for (let readIndex = 0, pvfIndex = 0, svfIndex = 0, svfReadIndex = skipFactor; readIndex < size; readIndex++) {
-        if (svfReadIndex === readIndex) {
+        if (svfReadIndex - 1 === readIndex) {
             svfChunk[svfIndex++] = data[readIndex];
             svfReadIndex += skipFactor;
         } else {
