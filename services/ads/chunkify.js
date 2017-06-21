@@ -2,11 +2,22 @@ const request = require('request')
 const uuid = require('uuid/v4')
 
 const buffers = {}
-const chunkSizeLimit = 1 << 20
-const numberOfBuffers = 2
 
-exports.removeBuffer = function (sessionId) {
+const chunkSizeLimit = 1 << 20
+const maxNumberOfChunks = 2
+
+function removeBuffer (sessionId) {
     delete buffers[sessionId]
+}
+
+function getCurrentChunk (sessionId) {
+    let buffer = buffers[sessionId]
+    const chunk = buffer.chunks.shift()
+    if (buffer.ended && buffer.chunks.length === 0) {
+        removeBuffer(sessionId)
+    }
+
+    return chunk
 }
 
 exports.getChunk = function (sessionId, cb) {
@@ -15,11 +26,13 @@ exports.getChunk = function (sessionId, cb) {
         buffer.stream.resume()
 
         if (buffer.chunks.length > 0) {
-            return cb(null, buffer.chunks.shift())
+            const currentChunk = getCurrentChunk(sessionId)
+            return cb(null, currentChunk)
         }
 
         buffer.chunked(function () {
-            return cb(null, buffer.chunks.shift())
+            const currentChunk = getCurrentChunk(sessionId)
+            return cb(null, currentChunk)
         })
     }
 }
@@ -32,6 +45,7 @@ exports.startChunk = function (url, sessionId) {
     buffers[sessionId] = {stream, chunks: [], chunked: cb => events.push(cb)}
     let size = 0
     let buffer = new Buffer(0)
+
     stream.on('data', function (smallChunk) {
         buffer = Buffer.concat([buffer, smallChunk])
 
@@ -44,7 +58,7 @@ exports.startChunk = function (url, sessionId) {
             events = []
             buffer = new Buffer(0)
 
-            if (buffers[sessionId].chunks.length >= numberOfBuffers) {
+            if (buffers[sessionId].chunks.length >= maxNumberOfChunks) {
                 stream.pause()
             }
         }
@@ -52,8 +66,11 @@ exports.startChunk = function (url, sessionId) {
 
     stream.on('end', function () {
         buffers[sessionId].chunks = buffers[sessionId].chunks.concat(buffer)
+        buffers[sessionId].ended = true
         events.forEach(e => e())
     })
 
     return sessionId
 }
+
+exports.removeBuffer = removeBuffer
