@@ -1,4 +1,5 @@
 const request = require('request')
+const uuid = require('uuid/v4')
 
 const buffers = {}
 const chunkSizeLimit = 1 << 20
@@ -24,6 +25,8 @@ exports.getChunk = function (sessionId, cb) {
 }
 
 exports.startChunk = function (url, sessionId) {
+    sessionId = sessionId || uuid()
+
     let stream = request(url)
     let events = []
     buffers[sessionId] = {stream, chunks: [], chunked: cb => events.push(cb)}
@@ -51,16 +54,18 @@ exports.startChunk = function (url, sessionId) {
         buffers[sessionId].chunks = buffers[sessionId].chunks.concat(buffer)
         events.forEach(e => e())
     })
+
+    return sessionId
 }
 
-exports.startChunk('http://cdnp.tremormedia.com/video/acudeo/Carrot_400x300_500kb.flv', 'ast')
-exports.getChunk('ast', function (err, chunk) {
+const session = exports.startChunk('http://cdnp.tremormedia.com/video/acudeo/Carrot_400x300_500kb.flv')
+exports.getChunk(session, function (err, chunk) {
 
 })
 
 setTimeout(function () {
-    exports.getChunk('ast', function (err, chunk) {
+    exports.getChunk(session, function (err, chunk) {
 
     })
 
-},10000)
+}, 10000)
