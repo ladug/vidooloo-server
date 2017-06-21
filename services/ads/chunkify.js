@@ -57,15 +57,3 @@ exports.startChunk = function (url, sessionId) {
 
     return sessionId
 }
-
-const session = exports.startChunk('http://cdnp.tremormedia.com/video/acudeo/Carrot_400x300_500kb.flv')
-exports.getChunk(session, function (err, chunk) {
-
-})
-
-setTimeout(function () {
-    exports.getChunk(session, function (err, chunk) {
-
-    })
-
-}, 10000)
