@@ -2,7 +2,8 @@
  * Created by volodya on 6/1/2017.
  */
 const uid = require('uid-safe'),
-      BufferUtils = require('./bufferUtils');
+      BufferUtils = require('./bufferUtils'),
+      fs = require('fs');
 
 class State {
     constructor(){
@@ -185,7 +186,10 @@ class State {
 
 
         //file descriptor
-        this._fd  = null;
+        if(this._fd != null) {
+            fs.close(this._fd);
+            this._fd = null;
+        }
 
         if (deletePath) {
             this._filePath = null;

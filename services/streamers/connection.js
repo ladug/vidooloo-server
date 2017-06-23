@@ -39,9 +39,16 @@ class Connection  {
             this._curMessage.supplyClientWithData();
         }
         this._onWsError = (err) => { console.info("onWsError :: " + err );}
+        this._onConnectionClose = (code, reason) => {
+            this.streamer
+            this._state.reset();
+            this._state = null;
+            console.info("connection is closed")
+        }
 
         this._ws.on('message', this._onWsMessage);
         this._ws.on('error', this._onWsError);
+        this._ws.on('close', this._onConnectionClose);
     }
 
     get state(){
