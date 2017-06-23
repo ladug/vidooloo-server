@@ -145,7 +145,7 @@ class TaskFactory{
 
        // const mapBoxSize = 13;
         let curPvfOffset = 0,
-            tempPos = this._message.state.hdLen + this._message.config.svfOffSet.postHdLenOffset;
+            tempPos = this._message.state.hdLen +  this._message.config.svfOffSet.postHdLenOffset;
 
 
         const sayWhenStop = () => {
@@ -163,9 +163,14 @@ class TaskFactory{
                                   return callback(err);
                               }
                               curPvfOffset = pvfoffset;
-                              tempPos += this._message.config.svfOffSet.boxSize;//13
-                              // console.info("curPvfOffset :: " + curPvfOffset);
-                              // console.info("tempPos :: " + tempPos);
+                              if(curPvfOffset != this._message.reqPvfOffset){
+                                  tempPos += this._message.config.svfOffSet.boxSize;//13
+                                  // console.info("curPvfOffset :: " + curPvfOffset);
+                                  // console.info("tempPos :: " + tempPos);
+                              }
+                              else{
+                                  tempPos+= this._message.config.svfOffSet.dataLen;
+                              }
                               done();
                   });
               },
@@ -180,7 +185,7 @@ class TaskFactory{
                       return  callback(this._message.ERR_CODES.ERR_PVFOFFSET);
                   }
 
-                  tempPos -= this._message.config.svfOffSet.boxReminder;//- 13 + 4 = 9
+                //  tempPos -= this._message.config.svfOffSet.boxReminder;//- 13 + 4 = 9
                   BufferUtil.readFileNumAsync(
                       this._message.state.fd,
                       tempPos,
@@ -200,7 +205,7 @@ class TaskFactory{
                       })
               };
 
-        async.until( sayWhenStop,findRequestedPvfOffset, setSvfOffset);
+        async.until( sayWhenStop.bind(this),findRequestedPvfOffset.bind(this), setSvfOffset.bind(this));
     }//end of setSvfOffset
 
     setExtractionsLen(callback) {
@@ -218,11 +223,6 @@ class TaskFactory{
              callback();
         });
     }//end of setExtractionsLen
-
-    sendChunksReminder(callback){
-        //todo;
-    }
-
 
     getChunksAsync(callback){
 

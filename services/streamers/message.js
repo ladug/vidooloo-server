@@ -89,6 +89,7 @@ class Message {
         else if(this.reqPvfOffset > 0){
             //  console.info("pvfOffset :: " + command.pvfOffset + " , setting buffer to null");
             this.state.buffer = null;
+            this.state.chunksReminder = null;
             this.state.isToSendBuf = true;
         }
 

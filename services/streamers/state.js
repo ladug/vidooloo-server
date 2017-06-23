@@ -163,7 +163,7 @@ class State {
     }
 
     set chunksReminder(val){
-        this._chunksReadReminder = null;
+        this._chunksReadReminder = val;
     }
 
     reset(deletePath = true){
