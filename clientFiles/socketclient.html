@@ -6,6 +6,8 @@
 
     var wsUri = "ws://localhost:3101";
     var output;
+    var reader = new FileReader();
+    var cntr = 0;
 
     function init()
     {
@@ -14,10 +16,21 @@
         testWebSocket();
     }
 
+    function getData(offset){
+        //2048, 65536, 131072, 262144
+       return {
+           pvfOffset:offset,
+           portion: 2048,
+           file : "u"
+       }
+    }
+
     function testWebSocket()
     {
         debugger
+
         websocket = new WebSocket(wsUri);
+        websocket.binaryType = 'arraybuffer';
         websocket.onopen = function(evt) { onOpen(evt) };
         websocket.onclose = function(evt) { onClose(evt) };
         websocket.onmessage = function(evt) { onMessage(evt) };
@@ -27,7 +40,7 @@
     function onOpen(evt)
     {debugger
         writeToScreen("CONNECTED");
-        doSend("WebSocket rocks");
+
     }
 
     function onClose(evt)
@@ -37,8 +50,10 @@
 
     function onMessage(evt)
     {debugger
-        writeToScreen('<span style="color: blue;">RESPONSE: ' + evt.data+'</span>');
-        websocket.close();
+        var arr = new Uint8Array(evt.data);
+        cntr ++;
+        writeToScreen('<span style="color: blue;">RESPONSE_' + cntr + ': Uint8Array[' + arr+']</span>');
+
     }
 
     function onError(evt)
@@ -47,11 +62,16 @@
         writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
     }
 
-    function doSend(message)
+    function doSend(obj)
     {
-        debugger
-        writeToScreen("SENT: " + message);
-        websocket.send(message);
+        //just check how it goes for i
+        //tried with 20 for instance
+        for(var i =0 ; i < 1; i ++) {
+            obj.index = i;
+            var message = JSON.stringify(obj);
+            writeToScreen("SENT: " + message);
+            websocket.send(message);
+        }
     }
 
     function writeToScreen(message)
@@ -59,7 +79,7 @@
         debugger
         var pre = document.createElement("p");
         pre.style.wordWrap = "break-word";
-        pre.innerHTML = message;
+        pre.innerHTML =  message;
         output.appendChild(pre);
     }
 
@@ -68,5 +88,9 @@
 </script>
 
 <h2>WebSocket Test</h2>
+<button onClick=" doSend(getData(null));">Send Data</button>
+<button onClick=" doSend(getData(56));">Send Data: pvfoffset = 56</button>
+<button onClick=" doSend(getData(49518));">Send Data: pvfoffset = 49518</button>
+<button onClick =" websocket.close();">Close connection</button>
 
 <div id="output"></div>

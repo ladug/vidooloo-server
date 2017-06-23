@@ -62,3 +62,5 @@ raw.pvf
 *.svf
 services/fileCreators/svfReader - Copy.js
 services/mp4-analizer/test-read - Copy.js
+*.digest
+*.avf

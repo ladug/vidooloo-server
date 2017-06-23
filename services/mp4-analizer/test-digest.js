@@ -21,7 +21,7 @@ const convertHeadersForComparison = (mp4) => {
 
 const digester=require('../fileCreators/digestSvf');
 module.exports = () => {
-     const svfUrl = "./files/svf/1494876554244.svf";
+     const svfUrl = "./files/svf/u.svf"; //1494876554244
     digester.digest(svfUrl);
     return {success: true};
 };
