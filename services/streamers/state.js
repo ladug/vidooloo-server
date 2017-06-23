@@ -1,7 +1,8 @@
 /**
  * Created by volodya on 6/1/2017.
  */
-const uid = require('uid-safe');
+const uid = require('uid-safe'),
+      BufferUtils = require('./bufferUtils');
 
 class State {
     constructor(){
@@ -32,6 +33,10 @@ class State {
 
     get chunksReminder(){
       return  this._chunksReadReminder;
+    }
+
+    get hasChunksRemider(){
+        return this._chunksReadReminder != null && this._chunksReadReminder.length > 0;
     }
 
     get isHeaderSent(){
@@ -176,7 +181,7 @@ class State {
         //-------------------------
 
         this._isClientHeaderSent = false;
-        this._forceSendBuf = true;
+        this._forceSendBuf = false;
 
 
         //file descriptor
@@ -185,6 +190,13 @@ class State {
         if (deletePath) {
             this._filePath = null;
         }
+    }
+
+    fillBufferWithReminder(bufLen){
+        this.buffer = BufferUtils.getBuffer(bufLen);
+        let splitChunks = this._chunksReadReminder.length > bufLen;
+        this._chunksReadReminder.copy(this.buffer, 0, 0, splitChunks ? bufLen : this._chunksReadReminder.length);
+        this._chunksReadReminder = splitChunks ? this._chunksReadReminder.split(bufLen - 1) : null;
     }
 
     incrementPos(val){

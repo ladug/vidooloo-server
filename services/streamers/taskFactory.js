@@ -29,9 +29,6 @@ class TaskFactory{
         this._message.state.mapLen == 0 && this._byMessageDefinedTasks.push(this.setO2OMapSizeAsync.bind(this));
         this._message.reqPvfOffset != null && this._byMessageDefinedTasks.push(this.setSvfOffset.bind(this));
         this._message.state.chunksTotalLen == 0 && this._byMessageDefinedTasks.push(this.setExtractionsLen.bind(this));
-
-        //todo: refactor these 2!!
-        this._message.state.chunksReminder != null && this._byMessageDefinedTasks.push(this.sendChunksReminder(this));
         this._byMessageDefinedTasks.push(this.getChunksAsync.bind(this));
     }
 
@@ -240,24 +237,21 @@ class TaskFactory{
                       done();
                   });
               },
-              finishRead =(err) => {
+              finishReadChunks =(err) => {
                   if( err )  return callback(err);
                   this._message.state.chunksReminder = chunkReader.chunksReminder;
                   //send reminder
                   if( this._message.state.isEOF ){
                       this._message.stat.isEOF = true;
-                      if(this._message.state.chunksReminder != null) {
-                              this._message.send( this._message.state.chunksReminder );
-                              //fileWriteStream.write(reminder);
-                              this._message.stat.incrementBytesSent(this._message.state.chunksReminder.length);
-                      }
+                      chunkReader.handleWsBuffer();
                   }
+
                   // fileWriteStream.end();
                   callback();
               }
 
 
-        async.until(mustStopRead, read, finishRead);
+        async.until(mustStopRead, read, finishReadChunks);
 
     }//end of getChunksAsync
 

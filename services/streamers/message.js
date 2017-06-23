@@ -95,18 +95,18 @@ class Message {
     }
 
 
-
-    readDataAsync(){
-
-       // const   fileWriteStream = fs.createWriteStream(this.state.path.replace(".svf", ".avf"));
-        this.handleStateBuffer();
-        async.series(this._taskFactory.messageReadTasks, this._taskFactory.finishReadTasks);
-
-
+    handleReminder(){
+            this.state.hasChunksRemider && this.state.fillBufferWithReminder(this.portion);
     }
 
 
 
+    supplyClientWithData(){
+       // const   fileWriteStream = fs.createWriteStream(this.state.path.replace(".svf", ".avf"));
+        this.handleStateBuffer();
+        this.handleReminder();
+        ! this.state.isBufferReady  &&  async.series(this._taskFactory.messageReadTasks, this._taskFactory.finishReadTasks);
+    }
 }
 
 module.exports = Message;

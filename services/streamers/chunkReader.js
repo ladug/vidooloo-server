@@ -25,6 +25,8 @@ class ChunkReader{
        this._readSvfChunkLengthAsync = this.readSvfChunkLengthAsync;
     }
 
+
+
     get reminder(){
         return this._wsBuffer.length - this._curPos;
     }
@@ -42,14 +44,21 @@ class ChunkReader{
     }
 
     get addLenAsBuff(){
-        BufferUtil.getUint24AsBuffer((this._add && this._add.length) || 0);
+      return  BufferUtil.getUint24AsBuffer((this._add && this._add.length) || 0);
     }
 
 
 
+
+
     readSvfChunkAsync(callback){
-        const len = this._svfChunkSize + this._message.config.svfChunk.skipFactorLen,
-            readFileBufCallback = (err, buffer) => {
+        const len = this._svfChunkSize + this._message.config.svfChunk.skipFactorLen;
+
+        BufferUtil.readFileBufAsync(this._message.state.fd,
+            this._message.state.pos,
+            len,
+            this._message.config.svfChunk.offset,
+            (err, buffer) => {
                 if(err){return callback(err);}
                 if(buffer) {
                     this.writeWsBuf(buffer);
@@ -57,12 +66,7 @@ class ChunkReader{
                 }
                 callback()
             }
-
-        BufferUtil.readFileBufAsync(this._message.state.fd,
-            this._message.state.pos,
-            len,
-            this._message.config.svfChunk.offset,
-            readFileBufCallback);
+        );
     }//end of svfAddIntegratedData
 
     resetBuffer(){
@@ -72,10 +76,13 @@ class ChunkReader{
 
     //recursion
     writeWsBuf(bufContent){
+
+
         if(!bufContent || !bufContent.length) return;
         if(this.isToSaveReminder){this._chunkReminder.push(bufContent); return}
 
         let copyLen = this.getCopyLen(bufContent.length);
+
         bufContent.copy(this._wsBuffer, this._curPos,  0, copyLen);
         this._curPos += copyLen;
         if( this.isWsBufferFull ){
@@ -83,8 +90,17 @@ class ChunkReader{
             this.resetBuffer();
         }
         if(copyLen < bufContent.length) {
-            this.writeWsBuf(bufContent.slice(copyLen - 1));
+            this.writeWsBuf(bufContent.slice(copyLen));
         }
+
+    }
+
+    handleWsBuffer(){
+        if(!this._wsBuffer || !this._curPos) return;
+        if(!this.isWsBufferFull) {
+           this._wsBuffer = this._wsBuffer.slice(0, this._curPos);
+        }
+        this._message.state.isToSendBuf ? this.sendBuffer(): this.saveBuffer();
     }
 
 
@@ -93,7 +109,6 @@ class ChunkReader{
     this._message.send(this._wsBuffer);
         this._message.appendSendTime();
         this._message.state.isToSendBuf = false;
-    //todo debug
         this._message.writeToFile(this._wsBuffer);
         this._message.stat.incrementBytesSent(this._wsBuffer.length);
     // console.info("sent chunk buffer")
@@ -141,25 +156,21 @@ class ChunkReader{
 
 
     readSvfChunkLengthAsync (callback){
-        const readFileNumCallback = (err, num) =>{
-            if(err){return callback(err);}
-            // console.info("svfChunkSize :: " + num);
-            this.svfChunkSize = num;
-            this._message.state.incrementPos(this._message.config.svfChunk.dataLen);
-            // console.log('chunks => readSvfChunkLengthAsync');
-            callback();
-        };
 
         BufferUtil.readFileNumAsync(this._message.state.fd,
             this._message.state.pos,
             this._message.config.svfChunk.dataLen,//2
             this._message.config.svfChunk.offset,//0
             BufferUtil.NumReadModes.UInt16BE,
-            readFileNumCallback);
+            (err, num) =>{
+                if(err){return callback(err);}
+                // console.info("svfChunkSize :: " + num);
+                this._svfChunkSize = num;
+                this._message.state.incrementPos(this._message.config.svfChunk.dataLen);
+                // console.log('chunks => readSvfChunkLengthAsync');
+                callback();
+            });
     }//readSvfChunkLengthAsync
-
-
-
 
 }
 

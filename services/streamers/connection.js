@@ -19,23 +19,24 @@ class Connection  {
         // addOnModule.passClientDemand(user);
 
         this._onWsMessage = (wsMessage) => {
+
             this._curMessage = new Message( this, wsMessage);
+
             if(!this._curMessage.isPathValid){
                 this.sendErrCode(this.ERR_CODES.ERR_FILENAME);
                 this.finalizeCurMessage();
                 return;
             }
+
             this.state.path = this._curMessage.path;
 
-
-
-            if(this._curMessage.reqSvfOffset == null && this._state.isEOF){
+            if(this._curMessage.reqPvfOffset == null && this._state.isEOF){
                 this.sendErrCode(this.ERR_CODES.ERR_EOF);
                 this.finalizeCurMessage();
                 return;
             }
 
-            this._curMessage.readDataAsync();
+            this._curMessage.supplyClientWithData();
         }
         this._onWsError = (err) => { console.info("onWsError :: " + err );}
 
