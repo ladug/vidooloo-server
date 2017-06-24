@@ -80,7 +80,15 @@ class Stat {
         }
     }
 
+     destroy(){
+        this._fileStreamer.end();
+        for(let p in this){
 
+           if( p !== '_message'){
+               this[p]= null;
+           }
+        }
+     }
 
 }
 

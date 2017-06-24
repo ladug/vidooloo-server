@@ -68,9 +68,8 @@ class Message {
         this._stat.writeToFile(buffer);
     }
 
-    destroy(){
-        this._command = null;
-        this._stat = null;
+    destroy() {
+
     }
 
     //[a] if buffer is ready and offset set to null, send it;
@@ -107,6 +106,22 @@ class Message {
         this.handleStateBuffer();
         this.handleReminder();
         ! this.state.isBufferReady  &&  async.series(this._taskFactory.messageReadTasks, this._taskFactory.finishReadTasks);
+    }
+
+    destroy(){
+        if(this._command != null) {
+            this._command.destroy()
+            this._command = null;
+        }
+        if(this._stat != null) {
+            this._stat.destroy();
+            this._stat = null;
+        }
+
+        if(this._taskFactory != null) {
+            this._taskFactory.destroy();
+            this._taskFactory = null;
+        }
     }
 }
 

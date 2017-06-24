@@ -224,6 +224,12 @@ class State {
     isOutOfMap(pos){
         return pos >= (this._headersLength + this._o2omapSize);
     }
+    //------------------------------------------------------------
+    destroy(){
+        this.reset();
+        this._uid = null;
+        return null;
+    }
 }
 
 module.exports = State;

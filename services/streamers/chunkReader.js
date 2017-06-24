@@ -172,6 +172,23 @@ class ChunkReader{
             });
     }//readSvfChunkLengthAsync
 
+    //---- destroy---------------------------------------------
+    destroy(){
+       // console.info("deleting chunkreader")
+        //does not delete _message
+        this._len = null;
+        this._wsBuffer = null;
+        this._curPos = null;
+        this._chunkReminder = null;
+
+        this._svfChunkSize = null;
+        this._add = null;
+        this._tryToGetAddAsync = null;
+        this._readSvfChunkAsync = null;
+        this._readSvfChunkLengthAsync = null;
+    }
+
+
 }
 
 

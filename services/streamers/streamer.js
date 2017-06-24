@@ -1,24 +1,6 @@
-const fs = require('fs'),
-      bytesStream = require('../mp4-analizer/BytesStream'),
-      async = require('async'),
-      BufferUtil = require('./bufferUtils'),
-      State = require('./state'),
-      SKCommand = require('./socketCommand'),
-      Stat = require('./execStat'),
-      Settings = require('./config'),
+const Settings = require('./config'),
       uid = require('uid-safe'),
       Connection = require('./connection');
-
-
-
-const ERR_CODES = {
-    ERR_FILENAME : 1,
-    ERR_OPEN_FILE : 2,
-    ERR_EOF : 3,
-    ERR_PVFOFFSET: 4,
-    ERR_JUST_FUCKED_UP: 5,
-
-};
 
 
 class Streamer{
@@ -31,6 +13,8 @@ class Streamer{
          this._config = Settings.config;
          this._ERR_CODES = Settings.ERR_CODES;
          this._connections = new Object();
+
+
          //funcs--------------------------------
 
         this._onConnection = (ws, req ) => {
@@ -41,6 +25,8 @@ class Streamer{
         this._server.on('connection', this._onConnection);
     }
 
+
+    //getters-----------------------------------------------------------
     get config() {
        return this._config;
     }
@@ -50,29 +36,36 @@ class Streamer{
     }
 
 
+    //destroyers---------------------------------------------------------
     finalizeConnection  (id)  {
         if(!id || !this._connections || !this._connections[id]) return;
-        this._connections[id].destroy && this._connections[id].destroy();
+       // console.info("destroying conn :: " + id);
+        this._connections[id].destroy();
         this._connections[id] = null;
+        delete this._connections[id];
     }
 
     finalizeAllConnections(){
         if(!this._connections){return;}
         for( let p in this._connections){
-           this.finalizeConnection(p) ;
+           this.finalizeConnection(p);
         }
+        this._connections = null;
+        delete this._connections;
     }
 
-    destroy(){
+        destroy(){
         this.finalizeAllConnections();
-        for( let p in this){
-            this[p].destroy && this[p].destroy();
-            this[p] = null;
-        }
+        this._server = null;
+        delete this._server;
+        this._config = null;
+        delete this._config;
+        this._ERR_CODES = null;
+        delete this._ERR_CODES;
     }
 
 
-}
+}//end of streamer
 
 
 
