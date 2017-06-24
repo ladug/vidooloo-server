@@ -56,6 +56,13 @@ class SKCommand {
         if( !this._file) {return false;}
         return fs.existsSync(this._file)
     }
+
+    //destroy----------------------------
+    destroy(){
+        for(let p in this){ this[p]= null;}
+    }
+
+
 }
 
 module.exports = SKCommand;

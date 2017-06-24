@@ -2,8 +2,7 @@
  * Created by volodya on 6/9/2017.
  */
 const State = require('./state'),
-      Message = require('./message'),
-      Infra = require('./infra');
+      Message = require('./message');
 
 class Connection  {
     constructor(streamer, ws, req, id){
@@ -45,8 +44,9 @@ class Connection  {
         this._onWsError = (err) => { console.info("onWsError :: " + err );}
 
         this._onConnectionClose = (code, reason) => {
-            this._streamer.finalizeConnection(this._id);
-            console.info("connection is closed")
+            let id = this._id;
+            this._streamer.finalizeConnection(id);
+           // console.info("connection closed. ID :: " + id);
         }
 
         // events subscribe ----------------------------------------------------
@@ -92,7 +92,17 @@ class Connection  {
     //destroyers--------------------------------------------------------------------------
     finalizeCurMessage(){
         if(!this._curMessage){return;}
-        this._curMessage = Infra.destroy(this._curMessage);
+        this._curMessage.destroy();
+        this._curMessage = null;
+    }
+
+    destroy(){
+        this.finalizeCurMessage();
+        this._id = null;
+        this._ws = null;
+        this._req = null;
+        this._state.destroy();
+        this._state = null;
     }
 }
 

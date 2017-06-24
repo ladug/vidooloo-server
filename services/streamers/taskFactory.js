@@ -6,6 +6,7 @@ const fs = require('fs'),
       BufferUtil = require('./bufferUtils'),
       ChunkReader = require('./chunkReader');
 
+
 class TaskFactory{
 
     constructor(message){
@@ -246,6 +247,9 @@ class TaskFactory{
                       chunkReader.handleWsBuffer();
                   }
 
+                  chunkReader.destroy();
+                  chunkReader = null;
+
                   // fileWriteStream.end();
                   callback();
               }
@@ -267,7 +271,9 @@ class TaskFactory{
         }
 
         this._message.stat.end();
-           console.info(this._message.stat.log);
+        console.info(this._message.stat.log);
+
+        this._message.destroy();
     }
 
 //-------getters----------------------------------------
@@ -280,6 +286,13 @@ class TaskFactory{
         return this.finishRead.bind(this);
     }
 
-}
+    //destroy-------------------------------
+
+    destroy(){
+        this._byMessageDefinedTasks = null;
+        this._readChunksAndAddsCallback = null;
+    }
+
+}//end of TaskFactory
 
 module.exports = TaskFactory;

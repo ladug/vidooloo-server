@@ -1,7 +1,7 @@
 const Settings = require('./config'),
       uid = require('uid-safe'),
-      Connection = require('./connection'),
-      Infra = require('./infra');
+      Connection = require('./connection');
+
 
 class Streamer{
     constructor(server){
@@ -39,20 +39,29 @@ class Streamer{
     //destroyers---------------------------------------------------------
     finalizeConnection  (id)  {
         if(!id || !this._connections || !this._connections[id]) return;
-        this._connections[id] = Infra.destroy(this._connections[id]);
+       // console.info("destroying conn :: " + id);
+        this._connections[id].destroy();
+        this._connections[id] = null;
+        delete this._connections[id];
     }
 
     finalizeAllConnections(){
         if(!this._connections){return;}
         for( let p in this._connections){
-          p  = Infra.destroy(p) ;
+           this.finalizeConnection(p);
         }
         this._connections = null;
+        delete this._connections;
     }
 
-    destroy(){
+        destroy(){
         this.finalizeAllConnections();
-        Infra.destroy(this);
+        this._server = null;
+        delete this._server;
+        this._config = null;
+        delete this._config;
+        this._ERR_CODES = null;
+        delete this._ERR_CODES;
     }
 
 
