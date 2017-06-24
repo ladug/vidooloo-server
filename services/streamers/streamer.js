@@ -1,25 +1,7 @@
-const fs = require('fs'),
-      bytesStream = require('../mp4-analizer/BytesStream'),
-      async = require('async'),
-      BufferUtil = require('./bufferUtils'),
-      State = require('./state'),
-      SKCommand = require('./socketCommand'),
-      Stat = require('./execStat'),
-      Settings = require('./config'),
+const Settings = require('./config'),
       uid = require('uid-safe'),
-      Connection = require('./connection');
-
-
-
-const ERR_CODES = {
-    ERR_FILENAME : 1,
-    ERR_OPEN_FILE : 2,
-    ERR_EOF : 3,
-    ERR_PVFOFFSET: 4,
-    ERR_JUST_FUCKED_UP: 5,
-
-};
-
+      Connection = require('./connection'),
+      Infra = require('./infra');
 
 class Streamer{
     constructor(server){
@@ -31,6 +13,8 @@ class Streamer{
          this._config = Settings.config;
          this._ERR_CODES = Settings.ERR_CODES;
          this._connections = new Object();
+
+
          //funcs--------------------------------
 
         this._onConnection = (ws, req ) => {
@@ -41,6 +25,8 @@ class Streamer{
         this._server.on('connection', this._onConnection);
     }
 
+
+    //getters-----------------------------------------------------------
     get config() {
        return this._config;
     }
@@ -50,29 +36,27 @@ class Streamer{
     }
 
 
+    //destroyers---------------------------------------------------------
     finalizeConnection  (id)  {
         if(!id || !this._connections || !this._connections[id]) return;
-        this._connections[id].destroy && this._connections[id].destroy();
-        this._connections[id] = null;
+        this._connections[id] = Infra.destroy(this._connections[id]);
     }
 
     finalizeAllConnections(){
         if(!this._connections){return;}
         for( let p in this._connections){
-           this.finalizeConnection(p) ;
+          p  = Infra.destroy(p) ;
         }
+        this._connections = null;
     }
 
     destroy(){
         this.finalizeAllConnections();
-        for( let p in this){
-            this[p].destroy && this[p].destroy();
-            this[p] = null;
-        }
+        Infra.destroy(this);
     }
 
 
-}
+}//end of streamer
 
 
 

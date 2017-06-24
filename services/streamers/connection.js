@@ -2,7 +2,8 @@
  * Created by volodya on 6/9/2017.
  */
 const State = require('./state'),
-      Message = require('./message');
+      Message = require('./message'),
+      Infra = require('./infra');
 
 class Connection  {
     constructor(streamer, ws, req, id){
@@ -18,7 +19,8 @@ class Connection  {
         //this._client = new Client(req, state.serverSocketId);
         // addOnModule.passClientDemand(user);
 
-        this._onWsMessage = (wsMessage) => {
+        //events code--------------------------------------------------------
+         this._onWsMessage = (wsMessage) => {
 
             this._curMessage = new Message( this, wsMessage);
 
@@ -38,18 +40,23 @@ class Connection  {
 
             this._curMessage.supplyClientWithData();
         }
+
+
         this._onWsError = (err) => { console.info("onWsError :: " + err );}
+
         this._onConnectionClose = (code, reason) => {
-            this.streamer
-            this._state.reset();
-            this._state = null;
+            this._streamer.finalizeConnection(this._id);
             console.info("connection is closed")
         }
 
+        // events subscribe ----------------------------------------------------
         this._ws.on('message', this._onWsMessage);
         this._ws.on('error', this._onWsError);
         this._ws.on('close', this._onConnectionClose);
-    }
+        
+    }//end of constructor
+
+    //getters-----------------------------------------------------------------------
 
     get state(){
         return this._state;
@@ -67,6 +74,8 @@ class Connection  {
         return this._streamer.ERR_CODES;
     }
 
+
+    //functions------------------------------------------------------------------------
     sendErrCode  (errCode)  {
         let res = new Uint8Array(1);
         res[0] = errCode;
@@ -78,23 +87,13 @@ class Connection  {
        this._ws && this._ws && this._ws.send && this._ws.send(data);
     }
 
+
+
+    //destroyers--------------------------------------------------------------------------
     finalizeCurMessage(){
         if(!this._curMessage){return;}
-        this._curMessage.destroy && this._curMessage.destroy();
-        this._curMessage = null;
+        this._curMessage = Infra.destroy(this._curMessage);
     }
-
-    destroy(){
-        throw "connection.destroy not implemented!!";
-
-        for( let p in this){
-            this[p].destroy && this[p].destroy();
-            this[p] = null;
-        }
-    }
-
-
-
 }
 
 module.exports = Connection;
