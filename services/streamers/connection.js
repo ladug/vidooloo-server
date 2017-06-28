@@ -2,7 +2,9 @@
  * Created by volodya on 6/9/2017.
  */
 const State = require('./state'),
-      Message = require('./message');
+      Message = require('./message'),
+      Client = require('./client');
+
 
 class Connection  {
     constructor(streamer, ws, req, id){
@@ -10,12 +12,13 @@ class Connection  {
         this._streamer = streamer;
         this._id = id;
         this._ws = ws;
-        this._req = req;
+
         this._state = new State();
         this._ws._socket._sockname = this._state.serverSocketId;
         this._curMessage = null;
 
-        //this._client = new Client(req, state.serverSocketId);
+        this._client = new Client(req, id);
+
         // addOnModule.passClientDemand(user);
 
         //events code--------------------------------------------------------
