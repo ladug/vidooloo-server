@@ -20,6 +20,11 @@ function getCurrentChunk (sessionId) {
     return chunk
 }
 
+exports.hasChunks = function (sessionId) {
+    let buffer = buffers[sessionId]
+    return buffer && buffer.chunks.length > 0
+}
+
 exports.getChunk = function (sessionId, cb) {
     let buffer = buffers[sessionId]
     if (buffer) {
@@ -74,3 +79,18 @@ exports.startChunk = function (url, sessionId) {
 }
 
 exports.removeBuffer = removeBuffer
+
+
+// Demo how to use:
+// =================
+//
+// const session = exports.startChunk('http://cdnp.tremormedia.com/video/acudeo/Carrot_400x300_500kb.flv')
+// exports.getChunk(session, function (err, chunk) {
+//
+// })
+//
+// setTimeout(function () {
+//     exports.getChunk(session, function (err, chunk) {
+//
+//     })
+// }, 10000)
