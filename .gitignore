@@ -57,3 +57,5 @@ typings/
 # dotenv environment variables file
 .env
 .idea/
+services/fileCreators/svfReader - Copy.js
+services/mp4-analizer/test-read - Copy.js
